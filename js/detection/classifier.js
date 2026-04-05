@@ -11,22 +11,29 @@ const Classifier = {
      */
     computeAIScore(metrics) {
         const weights = Thresholds.weights;
+        const directions = Thresholds.metricDirection || {};
+        const weightKeys = Object.keys(weights);
+        const weightSum = weightKeys.reduce((sum, key) => sum + (weights[key] || 0), 0) || 1;
         
         // Validar y normalizar cada score
         const getScore = (metric) => {
             const score = metric?.score ?? 0;
             return isNaN(score) || !isFinite(score) ? 0 : score;
         };
+
+        const directionalScore = (key, metric) => {
+            const score = Math.min(Math.max(getScore(metric), 0), 1);
+            const direction = directions[key] ?? 1;
+            if (direction < 0) return 1 - score;
+            return score;
+        };
         
-        const score =
-            getScore(metrics.energyDistribution) * weights.energyDistribution +
-            getScore(metrics.noisePattern) * weights.noisePattern +
-            getScore(metrics.interScaleCorrelation) * weights.interScaleCorrelation +
-            getScore(metrics.llSmoothness) * weights.llSmoothness +
-            getScore(metrics.hlLhRatio) * weights.hlLhRatio +
-            getScore(metrics.midFrequencyGap) * weights.midFrequencyGap;
+        let score = 0;
+        for (const key of weightKeys) {
+            score += directionalScore(key, metrics[key]) * (weights[key] || 0);
+        }
         
-        const finalScore = Math.min(Math.max(score, 0), 1);
+        const finalScore = Math.min(Math.max(score / weightSum, 0), 1);
         return isNaN(finalScore) ? 0.5 : finalScore;
     },
 
@@ -75,25 +82,26 @@ const Classifier = {
      * @returns {string}
      */
     generateReport(metrics, aiScore) {
+        const metricDescriptions = {
+            energyDistribution: 'Distribución de energía anómala en bandas de frecuencia',
+            noisePattern: 'Patrón de ruido inconsistente con sensores físicos',
+            interScaleCorrelation: 'Correlaciones inter-escala inusuales',
+            llSmoothness: 'Sobre-suavizado detectado en texturas',
+            hlLhRatio: 'Desbalance direccional en detalles',
+            midFrequencyGap: 'Gap en frecuencias medias característico de generación sintética',
+            lbpPattern: 'Patrones locales de textura (LBP) poco naturales',
+            dctBand: 'Distribución DCT por bandas fuera de comportamiento fotográfico',
+            fftRadial: 'Pendiente radial FFT inconsistente con ley espectral natural',
+            prnuResidual: 'Estadísticas de residual/PRNU no compatibles con sensor real',
+            residualCooccurrence: 'Co-ocurrencia en residual con dependencia espacial sintética'
+        };
+
         const anomalies = [];
-        
-        if (metrics.energyDistribution.isAnomalous) {
-            anomalies.push('Distribución de energía anómala en bandas de frecuencia');
-        }
-        if (metrics.noisePattern.isAnomalous) {
-            anomalies.push('Patrón de ruido inconsistente con sensores físicos');
-        }
-        if (metrics.interScaleCorrelation.isAnomalous) {
-            anomalies.push('Correlaciones inter-escala inusuales');
-        }
-        if (metrics.llSmoothness.isAnomalous) {
-            anomalies.push('Sobre-suavizado detectado en texturas');
-        }
-        if (metrics.hlLhRatio.isAnomalous) {
-            anomalies.push('Desbalance direccional en detalles');
-        }
-        if (metrics.midFrequencyGap.isAnomalous) {
-            anomalies.push('Gap en frecuencias medias característico de generación sintética');
+
+        for (const [key, metric] of Object.entries(metrics)) {
+            if (metric?.isAnomalous && metricDescriptions[key]) {
+                anomalies.push(metricDescriptions[key]);
+            }
         }
         
         if (anomalies.length === 0) {
@@ -109,24 +117,19 @@ const Classifier = {
      * @returns {Object}
      */
     generateDetailedReport(metrics) {
+        const scores = {};
+        const anomalies = {};
+
+        for (const [key, metric] of Object.entries(metrics)) {
+            const score = Number.isFinite(metric?.score) ? metric.score : 0;
+            scores[key] = (score * 100).toFixed(1);
+            anomalies[key] = !!metric?.isAnomalous;
+        }
+
         return {
             summary: this.generateReport(metrics),
-            scores: {
-                energyDistribution: (metrics.energyDistribution.score * 100).toFixed(1),
-                noisePattern: (metrics.noisePattern.score * 100).toFixed(1),
-                interScaleCorrelation: (metrics.interScaleCorrelation.score * 100).toFixed(1),
-                llSmoothness: (metrics.llSmoothness.score * 100).toFixed(1),
-                hlLhRatio: (metrics.hlLhRatio.score * 100).toFixed(1),
-                midFrequencyGap: (metrics.midFrequencyGap.score * 100).toFixed(1)
-            },
-            anomalies: {
-                energyDistribution: metrics.energyDistribution.isAnomalous,
-                noisePattern: metrics.noisePattern.isAnomalous,
-                interScaleCorrelation: metrics.interScaleCorrelation.isAnomalous,
-                llSmoothness: metrics.llSmoothness.isAnomalous,
-                hlLhRatio: metrics.hlLhRatio.isAnomalous,
-                midFrequencyGap: metrics.midFrequencyGap.isAnomalous
-            }
+            scores,
+            anomalies
         };
     }
 };

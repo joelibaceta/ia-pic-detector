@@ -6,6 +6,19 @@
 class WaveletAIDetector {
     constructor() {
         this.version = '1.0.0';
+        this.hybridReady = false;
+    }
+
+    async ensureHybridModel() {
+        if (this.hybridReady) return;
+        this.hybridReady = true;
+
+        if (typeof HybridModel === 'undefined') return;
+        const modelPath =
+            typeof window !== 'undefined' && window.HYBRID_MODEL_PATH
+                ? window.HYBRID_MODEL_PATH
+                : 'hybrid-model.fe.pixel.v1.json';
+        await HybridModel.ensureLoaded(modelPath);
     }
 
     /**
@@ -15,6 +28,8 @@ class WaveletAIDetector {
      */
     async detectAI(imageFile) {
         try {
+            await this.ensureHybridModel();
+
             // 1. Cargar imagen
             const img = await Utils.loadImage(imageFile);
             const imageData = Utils.getImageData(img, 1024);
@@ -27,28 +42,47 @@ class WaveletAIDetector {
             
             // 4. Extraer características
             const features = FeatureExtractor.extractAll(waveletCoeffs);
+            const advancedFeatures = typeof AdvancedFeatureExtractor !== 'undefined'
+                ? AdvancedFeatureExtractor.extract(grayImage)
+                : null;
             
             // 5. Calcular métricas de anomalía
-            const metrics = AnomalyMetrics.computeAll(features);
+            const metrics = AnomalyMetrics.computeAll(features, advancedFeatures);
             
             // 6. Calcular score de IA
             const aiScore = Classifier.computeAIScore(metrics);
+            const featureSummary = FeatureExtractor.summarize(features);
+
+            let finalScore = aiScore;
+            let nnProbability = null;
+            let modelType = 'wavelet';
+
+            if (typeof HybridModel !== 'undefined' && HybridModel._model) {
+                const hybrid = HybridModel.predict(featureSummary, metrics, aiScore, advancedFeatures, HybridModel._model);
+                finalScore = hybrid.finalScore;
+                nnProbability = hybrid.nnProbability;
+                modelType = 'hybrid';
+            }
             
             // 7. Clasificar
-            const { isAI, confidence } = Classifier.classify(aiScore, metrics);
+            const { isAI, confidence } = Classifier.classify(finalScore, metrics);
             
             // 8. Generar reporte
-            const details = Classifier.generateReport(metrics, aiScore);
+            const details = Classifier.generateReport(metrics, finalScore);
             const detailedReport = Classifier.generateDetailedReport(metrics);
             
             return {
                 isAI,
                 confidence,
                 details,
-                aiScore: (aiScore * 100).toFixed(1),
+                aiScore: (finalScore * 100).toFixed(1),
+                waveletScore: (aiScore * 100).toFixed(1),
+                nnScore: nnProbability !== null ? (nnProbability * 100).toFixed(1) : null,
+                modelType,
                 metrics: detailedReport.scores,
                 anomalies: detailedReport.anomalies,
-                features: FeatureExtractor.summarize(features),
+                features: featureSummary,
+                advancedFeatures,
                 debugInfo: {
                     waveletLevels: waveletCoeffs.levels.length,
                     imageSize: { width: imageData.width, height: imageData.height },
@@ -74,7 +108,10 @@ class WaveletAIDetector {
         const grayImage = Preprocessing.toGrayscale(imageData);
         const waveletCoeffs = Wavelet.dwt2D(grayImage, 2); // Solo 2 niveles
         const features = FeatureExtractor.extractAll(waveletCoeffs);
-        const metrics = AnomalyMetrics.computeAll(features);
+        const advancedFeatures = typeof AdvancedFeatureExtractor !== 'undefined'
+            ? AdvancedFeatureExtractor.extract(grayImage)
+            : null;
+        const metrics = AnomalyMetrics.computeAll(features, advancedFeatures);
         const aiScore = Classifier.computeAIScore(metrics);
         const { isAI, confidence } = Classifier.classify(aiScore);
         

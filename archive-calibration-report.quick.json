@@ -1,0 +1,77 @@
+{
+  "generatedAt": "2026-04-05T16:11:26.864Z",
+  "config": {
+    "datasetRoot": "archive/real_vs_fake/real-vs-fake",
+    "maxSize": 384,
+    "trainPerClass": 300,
+    "validPerClass": 150,
+    "seed": 42,
+    "thresholdMin": 0.35,
+    "thresholdMax": 0.9,
+    "thresholdStep": 0.005,
+    "metric": "f1",
+    "reportPath": "archive-calibration-report.quick.json"
+  },
+  "bestThreshold": 0.38,
+  "optimizedFor": "f1",
+  "trainMetrics": {
+    "tp": 300,
+    "tn": 3,
+    "fp": 297,
+    "fn": 0,
+    "total": 600,
+    "accuracy": 0.505,
+    "precision": 0.5025125628140703,
+    "recall": 1,
+    "f1": 0.6688963210702341,
+    "specificity": 0.01
+  },
+  "validMetrics": {
+    "tp": 150,
+    "tn": 2,
+    "fp": 148,
+    "fn": 0,
+    "total": 300,
+    "accuracy": 0.5066666666666667,
+    "precision": 0.5033557046979866,
+    "recall": 1,
+    "f1": 0.6696428571428572,
+    "specificity": 0.013333333333333334
+  },
+  "trainMetricSeparation": {
+    "hlLhRatio": {
+      "fakeAvg": 0.5607,
+      "realAvg": 0.5268,
+      "separation": 0.0339
+    },
+    "noisePattern": {
+      "fakeAvg": 0.6708,
+      "realAvg": 0.6889,
+      "separation": 0.0181
+    },
+    "energyDistribution": {
+      "fakeAvg": 0.9289,
+      "realAvg": 0.9114,
+      "separation": 0.0175
+    },
+    "midFrequencyGap": {
+      "fakeAvg": 0.9772,
+      "realAvg": 0.9722,
+      "separation": 0.0049
+    },
+    "interScaleCorrelation": {
+      "fakeAvg": 1,
+      "realAvg": 1,
+      "separation": 0
+    },
+    "llSmoothness": {
+      "fakeAvg": 0,
+      "realAvg": 0,
+      "separation": 0
+    }
+  },
+  "thresholdsSuggestion": {
+    "aiThreshold": 0.38,
+    "note": "Use this threshold in js/detection/thresholds.js and re-check with full valid/test."
+  }
+}

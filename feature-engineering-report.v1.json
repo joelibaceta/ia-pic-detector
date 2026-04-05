@@ -1,0 +1,360 @@
+{
+  "config": {
+    "datasetRoot": "archive/real_vs_fake/real-vs-fake",
+    "maxSize": 256,
+    "trainPerClass": 500,
+    "validPerClass": 250,
+    "seed": 42,
+    "topK": 18,
+    "logisticEpochs": 180,
+    "logisticLR": 0.05,
+    "nnHidden": 20,
+    "nnEpochs": 70,
+    "nnLR": 0.01,
+    "modelPath": "hybrid-model.fe.v1.json",
+    "reportPath": "feature-engineering-report.v1.json"
+  },
+  "selectedFeatures": [
+    "adv_dct_midRatio",
+    "adv_glcm_homogeneity",
+    "summary_LL_ratio",
+    "metric_midFrequencyGap",
+    "summary_mid_ratio",
+    "metric_energyDistribution",
+    "metric_dctBand",
+    "adv_fft_radialSlope",
+    "summary_HH_ratio",
+    "adv_lbp_uniformity",
+    "adv_prnu_hfNoiseRatio",
+    "adv_glcm_energy",
+    "metric_lbpPattern",
+    "metric_noisePattern",
+    "adv_dct_highRatio",
+    "metric_llSmoothness",
+    "adv_prnu_strength",
+    "adv_lbp_entropy"
+  ],
+  "importanceRanking": [
+    {
+      "feature": "adv_dct_midRatio",
+      "importance": 0.12016985842953246,
+      "corr": -0.12016985842953246
+    },
+    {
+      "feature": "adv_glcm_homogeneity",
+      "importance": 0.119262225347565,
+      "corr": -0.119262225347565
+    },
+    {
+      "feature": "summary_LL_ratio",
+      "importance": 0.11663992831167028,
+      "corr": 0.11663992831167028
+    },
+    {
+      "feature": "metric_midFrequencyGap",
+      "importance": 0.11656939564278491,
+      "corr": 0.11656939564278491
+    },
+    {
+      "feature": "summary_mid_ratio",
+      "importance": 0.11574393226831216,
+      "corr": -0.11574393226831216
+    },
+    {
+      "feature": "metric_energyDistribution",
+      "importance": 0.1156596991906428,
+      "corr": 0.1156596991906428
+    },
+    {
+      "feature": "metric_dctBand",
+      "importance": 0.11505496132085799,
+      "corr": 0.11505496132085799
+    },
+    {
+      "feature": "adv_fft_radialSlope",
+      "importance": 0.11180208658813112,
+      "corr": -0.11180208658813112
+    },
+    {
+      "feature": "summary_HH_ratio",
+      "importance": 0.10688385250786862,
+      "corr": -0.10688385250786862
+    },
+    {
+      "feature": "adv_lbp_uniformity",
+      "importance": 0.10491571713003754,
+      "corr": -0.10491571713003754
+    },
+    {
+      "feature": "adv_prnu_hfNoiseRatio",
+      "importance": 0.10043095078275548,
+      "corr": -0.10043095078275548
+    },
+    {
+      "feature": "adv_glcm_energy",
+      "importance": 0.09368698068543217,
+      "corr": -0.09368698068543217
+    },
+    {
+      "feature": "metric_lbpPattern",
+      "importance": 0.08719577726330159,
+      "corr": -0.08719577726330159
+    },
+    {
+      "feature": "metric_noisePattern",
+      "importance": 0.08229718786938692,
+      "corr": -0.08229718786938692
+    },
+    {
+      "feature": "adv_dct_highRatio",
+      "importance": 0.08028752363583211,
+      "corr": -0.08028752363583211
+    },
+    {
+      "feature": "metric_llSmoothness",
+      "importance": 0.07732335450463235,
+      "corr": 0.07732335450463235
+    },
+    {
+      "feature": "adv_prnu_strength",
+      "importance": 0.07184057108580441,
+      "corr": -0.07184057108580441
+    },
+    {
+      "feature": "adv_lbp_entropy",
+      "importance": 0.06652162778759904,
+      "corr": 0.06652162778759904
+    },
+    {
+      "feature": "metric_fftRadial",
+      "importance": 0.06454277886273879,
+      "corr": 0.06454277886273879
+    },
+    {
+      "feature": "wavelet_score",
+      "importance": 0.0582130022214036,
+      "corr": 0.0582130022214036
+    },
+    {
+      "feature": "summary_HH_entropy",
+      "importance": 0.05566400634880628,
+      "corr": 0.05566400634880628
+    },
+    {
+      "feature": "metric_interScaleCorrelation",
+      "importance": 0.05097242532191619,
+      "corr": -0.05097242532191619
+    },
+    {
+      "feature": "adv_fft_flatness",
+      "importance": 0.04958296473488399,
+      "corr": -0.04958296473488399
+    },
+    {
+      "feature": "adv_fft_lowHighRatio",
+      "importance": 0.04858665255385786,
+      "corr": 0.04858665255385786
+    },
+    {
+      "feature": "summary_avg_entropy",
+      "importance": 0.04672154474378279,
+      "corr": 0.04672154474378279
+    },
+    {
+      "feature": "adv_residual_kurtosis",
+      "importance": 0.04448420324189125,
+      "corr": -0.04448420324189125
+    },
+    {
+      "feature": "adv_dct_slope",
+      "importance": 0.04070749824476962,
+      "corr": -0.04070749824476962
+    },
+    {
+      "feature": "summary_HL_LH_ratio",
+      "importance": 0.02859265394631792,
+      "corr": -0.02859265394631792
+    },
+    {
+      "feature": "metric_prnuResidual",
+      "importance": 0.02285280815684078,
+      "corr": -0.02285280815684078
+    },
+    {
+      "feature": "summary_HH_kurtosis",
+      "importance": 0.022194618749340193,
+      "corr": 0.022194618749340193
+    },
+    {
+      "feature": "metric_residualCooccurrence",
+      "importance": 0.021408288458957384,
+      "corr": -0.021408288458957384
+    },
+    {
+      "feature": "adv_glcm_correlation",
+      "importance": 0.020986533260317842,
+      "corr": 0.020986533260317842
+    },
+    {
+      "feature": "metric_hlLhRatio",
+      "importance": 0.019738756348692883,
+      "corr": -0.019738756348692883
+    },
+    {
+      "feature": "summary_LL_entropy",
+      "importance": 0.008655656816706209,
+      "corr": -0.008655656816706209
+    },
+    {
+      "feature": "adv_glcm_contrast",
+      "importance": 0,
+      "corr": 0
+    }
+  ],
+  "ablation": {
+    "baselineF1": 0.6696562032884904,
+    "rows": [
+      {
+        "feature": "adv_fft_radialSlope",
+        "validF1Without": 0.6636225266362252,
+        "deltaF1": 0.006033676652265174
+      },
+      {
+        "feature": "adv_dct_highRatio",
+        "validF1Without": 0.6646795827123696,
+        "deltaF1": 0.004976620576120805
+      },
+      {
+        "feature": "metric_midFrequencyGap",
+        "validF1Without": 0.6656671664167916,
+        "deltaF1": 0.003989036871698826
+      },
+      {
+        "feature": "summary_mid_ratio",
+        "validF1Without": 0.6656671664167916,
+        "deltaF1": 0.003989036871698826
+      },
+      {
+        "feature": "adv_prnu_hfNoiseRatio",
+        "validF1Without": 0.6656671664167916,
+        "deltaF1": 0.003989036871698826
+      },
+      {
+        "feature": "metric_energyDistribution",
+        "validF1Without": 0.6686567164179105,
+        "deltaF1": 0.0009994868705799353
+      },
+      {
+        "feature": "summary_LL_ratio",
+        "validF1Without": 0.6696562032884904,
+        "deltaF1": 0
+      },
+      {
+        "feature": "adv_glcm_energy",
+        "validF1Without": 0.6706586826347306,
+        "deltaF1": -0.0010024793462402037
+      },
+      {
+        "feature": "adv_glcm_homogeneity",
+        "validF1Without": 0.672514619883041,
+        "deltaF1": -0.00285841659455055
+      },
+      {
+        "feature": "metric_llSmoothness",
+        "validF1Without": 0.6726726726726726,
+        "deltaF1": -0.0030164693841822077
+      },
+      {
+        "feature": "metric_lbpPattern",
+        "validF1Without": 0.6742532005689901,
+        "deltaF1": -0.004596997280499671
+      },
+      {
+        "feature": "summary_HH_ratio",
+        "validF1Without": 0.6754772393538913,
+        "deltaF1": -0.005821036065400853
+      },
+      {
+        "feature": "metric_noisePattern",
+        "validF1Without": 0.6771428571428572,
+        "deltaF1": -0.007486653854366754
+      },
+      {
+        "feature": "adv_dct_midRatio",
+        "validF1Without": 0.6780626780626781,
+        "deltaF1": -0.008406474774187656
+      },
+      {
+        "feature": "adv_lbp_uniformity",
+        "validF1Without": 0.6782608695652175,
+        "deltaF1": -0.008604666276727069
+      },
+      {
+        "feature": "adv_lbp_entropy",
+        "validF1Without": 0.6782608695652175,
+        "deltaF1": -0.008604666276727069
+      },
+      {
+        "feature": "metric_dctBand",
+        "validF1Without": 0.6784140969162996,
+        "deltaF1": -0.00875789362780921
+      },
+      {
+        "feature": "adv_prnu_strength",
+        "validF1Without": 0.6794117647058824,
+        "deltaF1": -0.009755561417391978
+      }
+    ]
+  },
+  "logistic": {
+    "threshold": 0.41,
+    "trainMetrics": {
+      "tp": 453,
+      "tn": 108,
+      "fp": 392,
+      "fn": 47,
+      "total": 1000,
+      "accuracy": 0.561,
+      "precision": 0.5360946745562131,
+      "recall": 0.906,
+      "f1": 0.6736059479553904
+    },
+    "validMetrics": {
+      "tp": 224,
+      "tn": 55,
+      "fp": 195,
+      "fn": 26,
+      "total": 500,
+      "accuracy": 0.558,
+      "precision": 0.5346062052505967,
+      "recall": 0.896,
+      "f1": 0.6696562032884904
+    }
+  },
+  "nn": {
+    "threshold": 0.1,
+    "trainMetrics": {
+      "tp": 500,
+      "tn": 0,
+      "fp": 500,
+      "fn": 0,
+      "total": 1000,
+      "accuracy": 0.5,
+      "precision": 0.5,
+      "recall": 1,
+      "f1": 0.6666666666666666
+    },
+    "validMetrics": {
+      "tp": 250,
+      "tn": 0,
+      "fp": 250,
+      "fn": 0,
+      "total": 500,
+      "accuracy": 0.5,
+      "precision": 0.5,
+      "recall": 1,
+      "f1": 0.6666666666666666
+    }
+  },
+  "bestModelType": "logistic"
+}

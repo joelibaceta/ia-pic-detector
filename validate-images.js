@@ -23,6 +23,7 @@ function loadDetectorModules() {
   loadScriptAndExport(path.join(base, 'js/core/preprocessing.js'), ['Preprocessing']);
   loadScriptAndExport(path.join(base, 'js/core/wavelet.js'), ['Wavelet']);
   loadScriptAndExport(path.join(base, 'js/features/featureExtractor.js'), ['FeatureExtractor']);
+  loadScriptAndExport(path.join(base, 'js/features/advancedFeatureExtractor.js'), ['AdvancedFeatureExtractor']);
   loadScriptAndExport(path.join(base, 'js/detection/thresholds.js'), ['Thresholds']);
   loadScriptAndExport(path.join(base, 'js/detection/anomalyMetrics.js'), ['AnomalyMetrics']);
   loadScriptAndExport(path.join(base, 'js/detection/classifier.js'), ['Classifier']);
@@ -57,7 +58,8 @@ function analyzeImage(imageData) {
   const grayImage = Preprocessing.toGrayscale(imageData);
   const waveletCoeffs = Wavelet.dwt2D(grayImage, 3);
   const features = FeatureExtractor.extractAll(waveletCoeffs);
-  const metrics = AnomalyMetrics.computeAll(features);
+  const advanced = AdvancedFeatureExtractor.extract(grayImage);
+  const metrics = AnomalyMetrics.computeAll(features, advanced);
   const aiScore = Classifier.computeAIScore(metrics);
   const classification = Classifier.classify(aiScore, metrics);
 

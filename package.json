@@ -4,7 +4,10 @@
   "description": "Análisis Multi-Escala con Wavelets para Detección de Imágenes Generadas por IA",
   "main": "analyze-metrics.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "calibrate:archive": "node calibrate-archive.js",
+    "train:hybrid": "node train-hybrid-nn.js",
+    "train:fe": "node train-feature-engineering.js"
   },
   "repository": {
     "type": "git",

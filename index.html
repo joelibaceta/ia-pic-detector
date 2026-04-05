@@ -50,30 +50,11 @@
                 
                 <div class="result-area" id="resultArea" style="display: none;">
                     <div class="result-card">
-                        <div class="result-layout">
-                            <div class="result-main">
-                                <div class="result-icon" id="resultIcon"></div>
-                                <h3 class="result-title" id="resultTitle"></h3>
-                                <p class="result-confidence">Confidence: <span id="confidence"></span></p>
-                                <p class="result-description" id="resultDescription"></p>
-                            </div>
-
-                            <div class="evidence-panel">
-                                <h4 class="evidence-title">Detalle de Evidencia</h4>
-                                <p class="evidence-subtitle" id="evidenceSummary"></p>
-                                <div class="evidence-table-wrap">
-                                    <table class="evidence-table" aria-label="Tabla de evidencia de deteccion">
-                                        <thead>
-                                            <tr>
-                                                <th>Signal</th>
-                                                <th>Score</th>
-                                                <th>Estado</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="evidenceTableBody"></tbody>
-                                    </table>
-                                </div>
-                            </div>
+                        <div class="result-main">
+                            <div class="result-icon" id="resultIcon"></div>
+                            <h3 class="result-title" id="resultTitle"></h3>
+                            <p class="result-confidence">Confidence: <span id="confidence"></span></p>
+                            <p class="result-description" id="resultDescription"></p>
                         </div>
                     </div>
                 </div>
@@ -87,51 +68,51 @@
             
             <!-- Panel Derecho: Información -->
             <div class="right-panel">
-                <div class="info-content">
-                    <h2 class="info-title">How It Works</h2>
-                    <div class="title-underline-white"></div>
-                    
-                    <p class="info-intro">
-                        Our AI detection system uses advanced machine learning to identify synthetic images.
-                    </p>
-                    
-                    <div class="info-steps">
-                        <div class="step">
-                            <div class="step-number">1</div>
-                            <div class="step-content">
-                                <h4>Upload Image</h4>
-                                <p>Select or drag an image you want to analyze</p>
+                <div class="right-evidence-host">
+                    <div class="evidence-panel evidence-panel-main">
+                        <h4 class="evidence-title">Detalle de Evidencia</h4>
+                        <p class="evidence-subtitle" id="evidenceSummary">Analiza una imagen para ver el detalle de señales y scores del modelo.</p>
+                        <div class="model-stats" id="modelStats" style="display: none;">
+                            <div class="model-stats-title">Resultado del modelo</div>
+                            <div class="model-stats-grid">
+                                <div class="model-stat-item">
+                                    <span class="model-stat-label">Modelo</span>
+                                    <span class="model-stat-value" id="modelTypeValue">-</span>
+                                </div>
+                                <div class="model-stat-item">
+                                    <span class="model-stat-label">Score final</span>
+                                    <span class="model-stat-value" id="finalScoreValue">-</span>
+                                </div>
+                                <div class="model-stat-item">
+                                    <span class="model-stat-label">Score wavelet</span>
+                                    <span class="model-stat-value" id="waveletScoreValue">-</span>
+                                </div>
+                                <div class="model-stat-item">
+                                    <span class="model-stat-label">Score NN</span>
+                                    <span class="model-stat-value" id="nnScoreValue">-</span>
+                                </div>
+                                <div class="model-stat-item">
+                                    <span class="model-stat-label">Umbral IA</span>
+                                    <span class="model-stat-value" id="thresholdValue">-</span>
+                                </div>
                             </div>
                         </div>
-                        
-                        <div class="step">
-                            <div class="step-number">2</div>
-                            <div class="step-content">
-                                <h4>Deep Analysis</h4>
-                                <p>Our AI examines patterns, artifacts, and inconsistencies typical of generated images</p>
-                            </div>
-                        </div>
-                        
-                        <div class="step">
-                            <div class="step-number">3</div>
-                            <div class="step-content">
-                                <h4>Get Results</h4>
-                                <p>Receive a confidence score indicating the likelihood of AI generation</p>
-                            </div>
+                        <p class="evidence-warning" id="evidenceWarning" style="display: none;"></p>
+                        <div class="evidence-table-wrap evidence-table-wrap-main">
+                            <table class="evidence-table" aria-label="Tabla de evidencia de deteccion">
+                                <thead>
+                                    <tr>
+                                        <th>Signal</th>
+                                        <th>Que mide</th>
+                                        <th>Score</th>
+                                        <th>Estado</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="evidenceTableBody"></tbody>
+                            </table>
                         </div>
                     </div>
-                    
-                    <div class="info-features">
-                        <h3>Key Features</h3>
-                        <ul>
-                            <li>✓ Fast processing (2-3 seconds)</li>
-                            <li>✓ High accuracy rate (95%+)</li>
-                            <li>✓ Privacy-focused (images not stored)</li>
-                            <li>✓ Supports multiple formats</li>
-                            <li>✓ Free to use</li>
-                        </ul>
-                    </div>
-                    
+
                     <div class="info-note">
                         <strong>Note:</strong> This tool provides estimates and should not be used as definitive proof. AI detection is an evolving field.
                     </div>
@@ -149,11 +130,16 @@
     
     <!-- Feature extraction -->
     <script src="js/features/featureExtractor.js"></script>
+    <script src="js/features/advancedFeatureExtractor.js"></script>
     
     <!-- Detection modules -->
+    <script>
+        window.HYBRID_MODEL_PATH = 'hybrid-model.fe.pixel.v1.json';
+    </script>
     <script src="js/detection/thresholds.js"></script>
     <script src="js/detection/anomalyMetrics.js"></script>
     <script src="js/detection/classifier.js"></script>
+    <script src="js/detection/hybridModel.js"></script>
     <script src="js/detection/WaveletAIDetector.js"></script>
     
     <!-- Main entry point -->

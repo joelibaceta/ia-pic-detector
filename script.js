@@ -13,8 +13,15 @@ const resultIcon = document.getElementById('resultIcon');
 const resultTitle = document.getElementById('resultTitle');
 const confidence = document.getElementById('confidence');
 const resultDescription = document.getElementById('resultDescription');
+const modelStats = document.getElementById('modelStats');
+const modelTypeValue = document.getElementById('modelTypeValue');
+const finalScoreValue = document.getElementById('finalScoreValue');
+const waveletScoreValue = document.getElementById('waveletScoreValue');
+const nnScoreValue = document.getElementById('nnScoreValue');
+const thresholdValue = document.getElementById('thresholdValue');
 const evidenceTableBody = document.getElementById('evidenceTableBody');
 const evidenceSummary = document.getElementById('evidenceSummary');
+const evidenceWarning = document.getElementById('evidenceWarning');
 
 let selectedFile = null;
 
@@ -134,6 +141,16 @@ analyzeBtn.addEventListener('click', async () => {
 // Mostrar resultados
 function displayResults(result) {
     const resultCard = resultArea.querySelector('.result-card');
+    const anomalyCount = Object.values(result.anomalies || {}).filter(Boolean).length;
+    const finalScore = Number.parseFloat(result.aiScore);
+    const thresholdPct = typeof Thresholds !== 'undefined' && Thresholds.classification
+        ? Thresholds.classification.aiThreshold * 100
+        : 56;
+    const distanceToThreshold = Number.isFinite(finalScore) ? thresholdPct - finalScore : 0;
+    const isNearThreshold = distanceToThreshold >= 0 && distanceToThreshold <= 12;
+    const hasConflict = !result.isAI && anomalyCount >= 3 && isNearThreshold;
+    const waveletScoreText = result.waveletScore ? ` Wavelet: ${result.waveletScore}%` : '';
+    const nnScoreText = result.nnScore ? ` Modelo: ${result.nnScore}%` : '';
     
     if (result.isAI) {
         // Imagen generada por IA
@@ -142,14 +159,27 @@ function displayResults(result) {
         resultTitle.textContent = 'AI-Generated Image';
         confidence.textContent = `${result.confidence}%`;
         resultDescription.textContent = result.details || 'This image shows strong indicators of being artificially generated. Our wavelet analysis detected patterns commonly associated with AI image generation tools.';
+    } else if (hasConflict) {
+        // Resultado mixto: señales altas pero score final bajo umbral
+        resultCard.className = 'result-card human-created';
+        resultIcon.textContent = '⚠️';
+        resultTitle.textContent = 'Mixed Signals (Inconclusive)';
+        confidence.textContent = `${result.confidence}%`;
+        resultDescription.textContent = `Se detectaron señales técnicas altas (${anomalyCount}) y el score final quedó cerca, pero por debajo, del umbral de IA (${thresholdPct.toFixed(1)}%).${waveletScoreText}${nnScoreText}`;
     } else {
         // Imagen real/humana
         resultCard.className = 'result-card human-created';
         resultIcon.textContent = '✓';
         resultTitle.textContent = 'Likely Human-Created';
         confidence.textContent = `${result.confidence}%`;
-        resultDescription.textContent = result.details || 'This image appears to be authentic. Our wavelet analysis found characteristics typical of real photographs or human-created digital art.';
+        if (!result.isAI && anomalyCount >= 3) {
+            resultDescription.textContent = `Se observaron algunas señales altas (${anomalyCount}), pero la decision final es No IA: score final ${Number.isFinite(finalScore) ? `${finalScore.toFixed(1)}%` : 'N/A'} por debajo del umbral (${thresholdPct.toFixed(1)}%).${waveletScoreText}${nnScoreText}`;
+        } else {
+            resultDescription.textContent = result.details || `This image appears to be authentic. Decision: No IA, porque el score final quedo por debajo del umbral (${thresholdPct.toFixed(1)}%).${waveletScoreText}${nnScoreText}`;
+        }
     }
+
+    renderModelStats(result);
 
     renderEvidence(result);
     
@@ -159,6 +189,36 @@ function displayResults(result) {
     setTimeout(() => {
         resultArea.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }, 100);
+}
+
+function renderModelStats(result) {
+    if (!modelStats) return;
+
+    const finalScore = Number.parseFloat(result.aiScore);
+    const waveletScore = Number.parseFloat(result.waveletScore);
+    const nnScore = Number.parseFloat(result.nnScore);
+    const thresholdPct = typeof Thresholds !== 'undefined' && Thresholds.classification
+        ? Thresholds.classification.aiThreshold * 100
+        : null;
+
+    if (modelTypeValue) {
+        const rawType = String(result.modelType || 'wavelet').toLowerCase();
+        modelTypeValue.textContent = rawType === 'hybrid' ? 'Hibrido (Wavelet + ML)' : 'Wavelet clasico';
+    }
+    if (finalScoreValue) {
+        finalScoreValue.textContent = Number.isFinite(finalScore) ? `${finalScore.toFixed(1)}%` : '-';
+    }
+    if (waveletScoreValue) {
+        waveletScoreValue.textContent = Number.isFinite(waveletScore) ? `${waveletScore.toFixed(1)}%` : '-';
+    }
+    if (nnScoreValue) {
+        nnScoreValue.textContent = Number.isFinite(nnScore) ? `${nnScore.toFixed(1)}%` : 'N/A';
+    }
+    if (thresholdValue) {
+        thresholdValue.textContent = Number.isFinite(thresholdPct) ? `${thresholdPct.toFixed(1)}%` : '-';
+    }
+
+    modelStats.style.display = 'block';
 }
 
 function normalizeScore(raw) {
@@ -195,24 +255,28 @@ function renderEvidence(result) {
         {
             key: 'energyDistribution',
             label: 'Law Spectral',
+            measure: 'Reparte energia entre frecuencias (bajas vs altas).',
             value: readLawValue(['spectral', 'lawSpectral', 'Law Spectral'], normalizeScore(scores.energyDistribution)),
             anomalous: !!anomalies.energyDistribution
         },
         {
             key: 'hlLhRatio',
             label: 'Law Benford Score',
+            measure: 'Evalua distribucion de digitos y balance direccional del detalle.',
             value: readLawValue(['benford', 'lawBenford', 'Law Benford Score'], normalizeScore(scores.hlLhRatio)),
             anomalous: !!anomalies.hlLhRatio
         },
         {
             key: 'noisePattern',
             label: 'Law Noise Score',
+            measure: 'Analiza textura de ruido esperada en sensores reales.',
             value: readLawValue(['noise', 'lawNoise', 'Law Noise Score'], normalizeScore(scores.noisePattern)),
             anomalous: !!anomalies.noisePattern
         },
         {
             key: 'midFrequencyGap',
             label: 'Law Glcm Score',
+            measure: 'Mide co-ocurrencia y regularidad espacial de patrones.',
             value: readLawValue(['glcm', 'lawGlcm', 'Law Glcm Score'], normalizeScore(scores.midFrequencyGap)),
             anomalous: !!anomalies.midFrequencyGap
         }
@@ -226,13 +290,16 @@ function renderEvidence(result) {
 
     signals.forEach((signal) => {
         const level = scoreLevel(signal.value);
+        const stateLabel = signal.anomalous ? 'Anomalo ⚠' : level.label;
+        const stateClass = signal.anomalous ? 'warning' : level.className;
         const row = document.createElement('tr');
         row.innerHTML = `
             <td>${signal.label}</td>
+            <td class="evidence-measure">${signal.measure}</td>
             <td>${signal.value.toFixed(4)}</td>
             <td>
-                <span class="signal-badge ${signal.anomalous ? 'high' : level.className}">
-                    ${signal.anomalous ? 'Anomalo' : level.label}
+                <span class="signal-badge ${stateClass}">
+                    ${stateLabel}
                 </span>
             </td>
         `;
@@ -242,15 +309,30 @@ function renderEvidence(result) {
     const meanRow = document.createElement('tr');
     meanRow.innerHTML = `
         <td><strong>Mean</strong></td>
+        <td class="evidence-measure"><strong>Promedio de señales listadas arriba.</strong></td>
         <td><strong>${mean.toFixed(4)}</strong></td>
         <td><span class="signal-badge ${meanLevel.className}">${meanLevel.label}</span></td>
     `;
     evidenceTableBody.appendChild(meanRow);
 
     const anomalyCount = signals.filter((s) => s.anomalous).length;
-    evidenceSummary.textContent = result.isAI
-        ? `Se detectaron ${anomalyCount} señales fuertes compatibles con imagen sintética.`
-        : `Predominan patrones naturales. Señales fuertes detectadas: ${anomalyCount}.`;
+    if (evidenceWarning) {
+        if (anomalyCount >= 1) {
+            evidenceWarning.style.display = 'block';
+            evidenceWarning.textContent = `Warning: ${anomalyCount} señal(es) anomala(s). "Anomalo" significa comportamiento atipico frente a fotos naturales, no un veredicto final por si solo.`;
+        } else {
+            evidenceWarning.style.display = 'none';
+            evidenceWarning.textContent = '';
+        }
+    }
+
+    if (result.isAI) {
+        evidenceSummary.textContent = `Se detectaron ${anomalyCount} señales fuertes compatibles con imagen sintética.`;
+    } else if (anomalyCount >= 3) {
+        evidenceSummary.textContent = `Resultado mixto: ${anomalyCount} señales fuertes, pero la predicción final quedó bajo el umbral de IA.`;
+    } else {
+        evidenceSummary.textContent = `Predominan patrones naturales. Señales fuertes detectadas: ${anomalyCount}.`;
+    }
 }
 
 // Animación de entrada

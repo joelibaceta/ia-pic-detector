@@ -1,0 +1,102 @@
+{
+  "generatedAt": "2026-04-05T16:24:45.557Z",
+  "config": {
+    "datasetRoot": "archive/real_vs_fake/real-vs-fake",
+    "maxSize": 256,
+    "trainPerClass": 60,
+    "validPerClass": 40,
+    "seed": 42,
+    "thresholdMin": 0.35,
+    "thresholdMax": 0.9,
+    "thresholdStep": 0.005,
+    "metric": "f1",
+    "reportPath": "archive-calibration-report.advanced.smoke.json"
+  },
+  "bestThreshold": 0.35,
+  "optimizedFor": "f1",
+  "trainMetrics": {
+    "tp": 8,
+    "tn": 46,
+    "fp": 14,
+    "fn": 52,
+    "total": 120,
+    "accuracy": 0.45,
+    "precision": 0.36363636363636365,
+    "recall": 0.13333333333333333,
+    "f1": 0.1951219512195122,
+    "specificity": 0.7666666666666667
+  },
+  "validMetrics": {
+    "tp": 12,
+    "tn": 30,
+    "fp": 10,
+    "fn": 28,
+    "total": 80,
+    "accuracy": 0.525,
+    "precision": 0.5454545454545454,
+    "recall": 0.3,
+    "f1": 0.3870967741935483,
+    "specificity": 0.75
+  },
+  "trainMetricSeparation": {
+    "fftRadial": {
+      "fakeAvg": 0.234,
+      "realAvg": 0.2774,
+      "separation": 0.0434
+    },
+    "prnuResidual": {
+      "fakeAvg": 0.1333,
+      "realAvg": 0.154,
+      "separation": 0.0207
+    },
+    "dctBand": {
+      "fakeAvg": 0.2687,
+      "realAvg": 0.2892,
+      "separation": 0.0204
+    },
+    "hlLhRatio": {
+      "fakeAvg": 0.2286,
+      "realAvg": 0.2473,
+      "separation": 0.0187
+    },
+    "noisePattern": {
+      "fakeAvg": 0.7145,
+      "realAvg": 0.7317,
+      "separation": 0.0172
+    },
+    "interScaleCorrelation": {
+      "fakeAvg": 0.2589,
+      "realAvg": 0.2751,
+      "separation": 0.0162
+    },
+    "lbpPattern": {
+      "fakeAvg": 0.0088,
+      "realAvg": 0.0195,
+      "separation": 0.0107
+    },
+    "llSmoothness": {
+      "fakeAvg": 0.2941,
+      "realAvg": 0.2921,
+      "separation": 0.002
+    },
+    "midFrequencyGap": {
+      "fakeAvg": 0.7705,
+      "realAvg": 0.769,
+      "separation": 0.0015
+    },
+    "energyDistribution": {
+      "fakeAvg": 0.6536,
+      "realAvg": 0.6523,
+      "separation": 0.0013
+    },
+    "residualCooccurrence": {
+      "fakeAvg": 0.3958,
+      "realAvg": 0.395,
+      "separation": 0.0008
+    }
+  },
+  "thresholdsSuggestion": {
+    "aiThreshold": 0.35,
+    "note": "Use this threshold in js/detection/thresholds.js and re-check with full valid/test."
+  }
+}
