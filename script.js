@@ -13,6 +13,8 @@ const resultIcon = document.getElementById('resultIcon');
 const resultTitle = document.getElementById('resultTitle');
 const confidence = document.getElementById('confidence');
 const resultDescription = document.getElementById('resultDescription');
+const evidenceTableBody = document.getElementById('evidenceTableBody');
+const evidenceSummary = document.getElementById('evidenceSummary');
 
 let selectedFile = null;
 
@@ -148,6 +150,8 @@ function displayResults(result) {
         confidence.textContent = `${result.confidence}%`;
         resultDescription.textContent = result.details || 'This image appears to be authentic. Our wavelet analysis found characteristics typical of real photographs or human-created digital art.';
     }
+
+    renderEvidence(result);
     
     resultArea.style.display = 'block';
     
@@ -155,6 +159,98 @@ function displayResults(result) {
     setTimeout(() => {
         resultArea.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }, 100);
+}
+
+function normalizeScore(raw) {
+    const value = typeof raw === 'string' ? parseFloat(raw) : raw;
+    if (!Number.isFinite(value)) return 0;
+    return value > 1 ? value / 100 : value;
+}
+
+function scoreLevel(score) {
+    if (score >= 0.75) return { label: 'Alto', className: 'high' };
+    if (score >= 0.45) return { label: 'Medio', className: 'medium' };
+    return { label: 'Bajo', className: 'low' };
+}
+
+function renderEvidence(result) {
+    if (!evidenceTableBody || !evidenceSummary) return;
+
+    const scores = result.metrics || {};
+    const anomalies = result.anomalies || {};
+    const lawScores = result.lawScores || null;
+
+    const readLawValue = (keys, fallback) => {
+        if (!lawScores || typeof lawScores !== 'object') return fallback;
+        for (const key of keys) {
+            const value = lawScores[key];
+            if (value !== undefined && value !== null) {
+                return normalizeScore(value);
+            }
+        }
+        return fallback;
+    };
+
+    const signals = [
+        {
+            key: 'energyDistribution',
+            label: 'Law Spectral',
+            value: readLawValue(['spectral', 'lawSpectral', 'Law Spectral'], normalizeScore(scores.energyDistribution)),
+            anomalous: !!anomalies.energyDistribution
+        },
+        {
+            key: 'hlLhRatio',
+            label: 'Law Benford Score',
+            value: readLawValue(['benford', 'lawBenford', 'Law Benford Score'], normalizeScore(scores.hlLhRatio)),
+            anomalous: !!anomalies.hlLhRatio
+        },
+        {
+            key: 'noisePattern',
+            label: 'Law Noise Score',
+            value: readLawValue(['noise', 'lawNoise', 'Law Noise Score'], normalizeScore(scores.noisePattern)),
+            anomalous: !!anomalies.noisePattern
+        },
+        {
+            key: 'midFrequencyGap',
+            label: 'Law Glcm Score',
+            value: readLawValue(['glcm', 'lawGlcm', 'Law Glcm Score'], normalizeScore(scores.midFrequencyGap)),
+            anomalous: !!anomalies.midFrequencyGap
+        }
+    ];
+
+    const fallbackMean = signals.reduce((sum, s) => sum + s.value, 0) / (signals.length || 1);
+    const mean = readLawValue(['mean', 'lawMean', 'Mean'], fallbackMean);
+    const meanLevel = scoreLevel(mean);
+
+    evidenceTableBody.innerHTML = '';
+
+    signals.forEach((signal) => {
+        const level = scoreLevel(signal.value);
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${signal.label}</td>
+            <td>${signal.value.toFixed(4)}</td>
+            <td>
+                <span class="signal-badge ${signal.anomalous ? 'high' : level.className}">
+                    ${signal.anomalous ? 'Anomalo' : level.label}
+                </span>
+            </td>
+        `;
+        evidenceTableBody.appendChild(row);
+    });
+
+    const meanRow = document.createElement('tr');
+    meanRow.innerHTML = `
+        <td><strong>Mean</strong></td>
+        <td><strong>${mean.toFixed(4)}</strong></td>
+        <td><span class="signal-badge ${meanLevel.className}">${meanLevel.label}</span></td>
+    `;
+    evidenceTableBody.appendChild(meanRow);
+
+    const anomalyCount = signals.filter((s) => s.anomalous).length;
+    evidenceSummary.textContent = result.isAI
+        ? `Se detectaron ${anomalyCount} señales fuertes compatibles con imagen sintética.`
+        : `Predominan patrones naturales. Señales fuertes detectadas: ${anomalyCount}.`;
 }
 
 // Animación de entrada

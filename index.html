@@ -50,10 +50,31 @@
                 
                 <div class="result-area" id="resultArea" style="display: none;">
                     <div class="result-card">
-                        <div class="result-icon" id="resultIcon"></div>
-                        <h3 class="result-title" id="resultTitle"></h3>
-                        <p class="result-confidence">Confidence: <span id="confidence"></span></p>
-                        <p class="result-description" id="resultDescription"></p>
+                        <div class="result-layout">
+                            <div class="result-main">
+                                <div class="result-icon" id="resultIcon"></div>
+                                <h3 class="result-title" id="resultTitle"></h3>
+                                <p class="result-confidence">Confidence: <span id="confidence"></span></p>
+                                <p class="result-description" id="resultDescription"></p>
+                            </div>
+
+                            <div class="evidence-panel">
+                                <h4 class="evidence-title">Detalle de Evidencia</h4>
+                                <p class="evidence-subtitle" id="evidenceSummary"></p>
+                                <div class="evidence-table-wrap">
+                                    <table class="evidence-table" aria-label="Tabla de evidencia de deteccion">
+                                        <thead>
+                                            <tr>
+                                                <th>Signal</th>
+                                                <th>Score</th>
+                                                <th>Estado</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="evidenceTableBody"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 
