@@ -661,6 +661,156 @@ const AdvancedFeatureExtractor = {
         return full.slice(0, size);
     },
 
+    extractColorHistogram(imageData) {
+        // Analizar distribución de colores RGB
+        if (!imageData || !imageData.data) {
+            return { entropy: 0, uniformity: 0, colorSpread: 0 };
+        }
+
+        const data = imageData.data;
+        const len = Math.min(data.length, 3000 * 4); // Límite para rendimiento
+        const histR = new Array(32).fill(0);
+        const histG = new Array(32).fill(0);
+        const histB = new Array(32).fill(0);
+
+        for (let i = 0; i < len; i += 4) {
+            histR[Math.floor(data[i] / 8)]++;
+            histG[Math.floor(data[i + 1] / 8)]++;
+            histB[Math.floor(data[i + 2] / 8)]++;
+        }
+
+        const hists = [histR, histG, histB];
+        let totalEntropy = 0;
+        let totalUniformity = 0;
+
+        for (const hist of hists) {
+            const total = hist.reduce((a, b) => a + b, 0) || 1;
+            let entropy = 0;
+            let maxVal = 0;
+
+            for (let i = 0; i < hist.length; i++) {
+                if (hist[i] <= 0) continue;
+                const p = hist[i] / total;
+                entropy -= p * Math.log2(p + 1e-10);
+                maxVal = Math.max(maxVal, p);
+            }
+
+            totalEntropy += entropy / 5; // Normalizar por max bits
+            totalUniformity += maxVal; // Pico más alto = más concentrado = más uniforme
+        }
+
+        const avgEntropy = totalEntropy / 3;
+        const avgUniformity = totalUniformity / 3;
+        const colorSpread = Math.max(0, 1 - avgUniformity); // Inverso: spread = 1 - uniformity
+
+        return {
+            entropy: avgEntropy,
+            uniformity: avgUniformity,
+            colorSpread: colorSpread
+        };
+    },
+
+    extractIlluminationConsistency(grayImage) {
+        // Analizar uniformidad de iluminación dividiendo en regiones
+        const img = this.ensureSize(grayImage, 128, 64);
+        const { data, width, height } = img;
+
+        const regionSize = 16;
+        const regionsX = Math.floor(width / regionSize);
+        const regionsY = Math.floor(height / regionSize);
+
+        const regionMeans = [];
+        for (let ry = 0; ry < regionsY; ry++) {
+            for (let rx = 0; rx < regionsX; rx++) {
+                let sum = 0;
+                let count = 0;
+
+                for (let y = ry * regionSize; y < (ry + 1) * regionSize && y < height; y++) {
+                    for (let x = rx * regionSize; x < (rx + 1) * regionSize && x < width; x++) {
+                        sum += data[y * width + x];
+                        count++;
+                    }
+                }
+
+                if (count > 0) {
+                    regionMeans.push(sum / count);
+                }
+            }
+        }
+
+        if (regionMeans.length === 0) return { consistency: 0, uniformity: 0 };
+
+        // Consistencia: varianza entre regiones (baja = uniforme = IA)
+        const meanVal = regionMeans.reduce((a, b) => a + b, 0) / regionMeans.length;
+        const variance = regionMeans.reduce((s, v) => s + (v - meanVal) * (v - meanVal), 0) / regionMeans.length;
+        const std = Math.sqrt(variance);
+        const consistency = Math.exp(-std / 50); // Más uniforme = consistencia más alta
+
+        // Uniformity: proporción de regiones dentro de rango cercano a media
+        const tolerance = 15;
+        const uniformCount = regionMeans.filter((v) => Math.abs(v - meanVal) < tolerance).length;
+        const uniformity = uniformCount / regionMeans.length;
+
+        return { consistency, uniformity, std };
+    },
+
+    extractEdgeUniformity(grayImage) {
+        // Analizar uniformidad de bordes
+        const img = this.ensureSize(grayImage, 128, 64);
+        const { data, width, height } = img;
+
+        const edges = new Float32Array(width * height);
+        let maxEdge = 0;
+
+        // Calcular magnitud de gradientes
+        for (let y = 1; y < height - 1; y++) {
+            for (let x = 1; x < width - 1; x++) {
+                const idx = y * width + x;
+                const dx =
+                    data[(y - 1) * width + (x + 1)] + 2 * data[idx + 1] + data[(y + 1) * width + (x + 1)] -
+                    (data[(y - 1) * width + (x - 1)] + 2 * data[idx - 1] + data[(y + 1) * width + (x - 1)]);
+                const dy =
+                    data[(y + 1) * width + (x - 1)] + 2 * data[(y + 1) * width + x] + data[(y + 1) * width + (x + 1)] -
+                    (data[(y - 1) * width + (x - 1)] + 2 * data[(y - 1) * width + x] + data[(y - 1) * width + (x + 1)]);
+
+                const mag = Math.sqrt(dx * dx + dy * dy);
+                edges[idx] = mag;
+                maxEdge = Math.max(maxEdge, mag);
+            }
+        }
+
+        if (maxEdge === 0) return { edgeUniformity: 0, edgeSharpness: 0 };
+
+        // Normalizar edges
+        for (let i = 0; i < edges.length; i++) edges[i] /= maxEdge;
+
+        // Uniformity: qué tan uniform son los bordes detectados
+        const edgeBinary = new Array(edges.length).fill(0);
+        const threshold = 0.15;
+        let edgeCount = 0;
+
+        for (let i = 0; i < edges.length; i++) {
+            if (edges[i] > threshold) {
+                edgeBinary[i] = 1;
+                edgeCount++;
+            }
+        }
+
+        // Sharpness: qué tan definidos están los bordes
+        let sharpnessSum = 0;
+        for (let i = 0; i < edges.length; i++) {
+            sharpnessSum += edges[i] * edges[i];
+        }
+
+        const edgeSharpness = Math.sqrt(sharpnessSum / edges.length);
+        const edgeDensity = edgeCount / edges.length;
+
+        // Si hay muy pocos bordes o son demasiados uniformes = IA
+        const edgeUniformity = Math.abs(edgeDensity - 0.15); // Esperado ~15% de bordes
+
+        return { edgeUniformity, edgeSharpness, edgeDensity };
+    },
+
     extract(grayImage, imageData = null, options = null) {
         const lbp = this.extractLBP(grayImage);
         const dct = this.extractDCT(grayImage);
@@ -669,6 +819,9 @@ const AdvancedFeatureExtractor = {
         const glcm = this.extractResidualGLCM(residualObj);
         const surfDescriptorSize = Number(options?.surfDescriptorSize) || 0;
         const surfLike = this.extractSurfLike(grayImage, surfDescriptorSize);
+        const colorHist = this.extractColorHistogram(imageData);
+        const illumination = this.extractIlluminationConsistency(grayImage);
+        const edgeStats = this.extractEdgeUniformity(grayImage);
         const regional = typeof RegionalFeatureExtractor !== 'undefined'
             ? RegionalFeatureExtractor.extract(grayImage, imageData)
             : null;
@@ -680,6 +833,9 @@ const AdvancedFeatureExtractor = {
             residual: residualObj.stats,
             glcm,
             surfLike,
+            colorHist,
+            illumination,
+            edgeStats,
             regional
         };
     }

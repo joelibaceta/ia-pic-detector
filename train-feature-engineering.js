@@ -71,6 +71,14 @@ const FEATURE_KEYS = [
   'reg_fft_profile_diff',
   'reg_local_contrast_ratio',
   'reg_jpeg_block_inconsistency',
+  'col_hist_entropy',
+  'col_hist_uniformity',
+  'col_hist_spread',
+  'illum_consistency',
+  'illum_uniformity',
+  'edge_uniformity',
+  'edge_sharpness',
+  'edge_density',
   'wavelet_score'
 ];
 
@@ -553,18 +561,60 @@ function confusionFromScores(scores, y, threshold) {
   return { tp, tn, fp, fn, total, accuracy, precision, recall, specificity, balancedAccuracy, f1 };
 }
 
-function bestThreshold(scores, y, objective = 'balancedAccuracy', min = 0.1, max = 0.9, step = 0.01) {
-  let best = null;
-  for (let t = min; t <= max + 1e-12; t += step) {
-    const th = Number(t.toFixed(2));
-    const cm = confusionFromScores(scores, y, th);
+function rocCurvePoints(scores, y) {
+  // Generar puntos ROC para todos los thresholds únicos
+  const sorted = scores
+    .map((s, i) => ({ score: s, label: y[i] }))
+    .sort((a, b) => b.score - a.score);
 
+  const thresholds = new Set(sorted.map(p => p.score));
+  thresholds.add(0);
+  thresholds.add(1);
+
+  const points = [];
+  for (const t of Array.from(thresholds).sort((a, b) => b - a)) {
+    const cm = confusionFromScores(scores, y, t);
+    points.push({
+      threshold: t,
+      tpr: cm.recall,
+      fpr: cm.recall > 0 || cm.specificity > 0 ? 1 - cm.specificity : 0,
+      cm
+    });
+  }
+  return points;
+}
+
+function calculateAUC(rocPoints) {
+  let auc = 0;
+  for (let i = 0; i < rocPoints.length - 1; i++) {
+    const x1 = rocPoints[i].fpr;
+    const x2 = rocPoints[i + 1].fpr;
+    const y1 = rocPoints[i].tpr;
+    const y2 = rocPoints[i + 1].tpr;
+    auc += Math.abs(x2 - x1) * (y1 + y2) / 2;
+  }
+  return auc;
+}
+
+function bestThreshold(scores, y, objective = 'balancedAccuracy', min = 0.1, max = 0.9, step = 0.01) {
+  const rocPoints = rocCurvePoints(scores, y);
+  
+  let best = null;
+  for (const point of rocPoints) {
+    const cm = point.cm;
     const score = Number.isFinite(cm[objective]) ? cm[objective] : cm.balancedAccuracy;
+    
     if (!best || score > best.score || (score === best.score && cm.f1 > best.cm.f1)) {
-      best = { threshold: th, cm };
+      best = { threshold: point.threshold, cm, tpr: point.tpr, fpr: point.fpr };
       best.score = score;
     }
   }
+  
+  if (!best) {
+    best = { threshold: 0.5, cm: confusionFromScores(scores, y, 0.5), score: 0 };
+  }
+  
+  best.auc = calculateAUC(rocPoints);
   return best;
 }
 
@@ -1027,16 +1077,28 @@ async function main() {
   const selectedEval = selectedCandidate.eval;
 
   const exportModel = {
-    version: '3.0.0-feature-engineered',
+    version: '3.1.0-feature-engineered-ensemble',
     modelType: bestModelType,
     inputSize: selectedFeaturesFinal.length,
     featureKeys: selectedFeaturesFinal,
     mean: selectedIndicesFinal.map((i) => mean[i]),
     std: selectedIndicesFinal.map((i) => std[i]),
     threshold: selectedEval.threshold,
+    auc: selectedEval.auc || 0,
     blendAlpha: 1,
+    ensembleMode: true,
+    confidencePenalty: 0.15,
     trainedAt: new Date().toISOString()
   };
+
+  // Guardar los 3 modelos para ensemble voting
+  const ensembleModels = {
+    logistic: { threshold: logisticPrunedEval.threshold, auc: logisticPrunedEval.auc || 0 },
+    nn: { threshold: nnPrunedEval.threshold, auc: nnPrunedEval.auc || 0 },
+    randomForest: { threshold: rfPrunedEval.threshold, auc: rfPrunedEval.auc || 0 }
+  };
+  
+  exportModel.ensembleModels = ensembleModels;
 
   if (bestModelType === 'logistic') {
     exportModel.W = selectedEval.model.w;

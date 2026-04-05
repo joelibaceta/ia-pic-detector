@@ -68,6 +68,9 @@ const HybridModel = {
         const residual = advancedFeatures?.residual || {};
         const glcm = advancedFeatures?.glcm || {};
         const surfLike = Array.isArray(advancedFeatures?.surfLike) ? advancedFeatures.surfLike : [];
+        const colorHist = advancedFeatures?.colorHist || {};
+        const illumination = advancedFeatures?.illumination || {};
+        const edgeStats = advancedFeatures?.edgeStats || {};
         const regional = advancedFeatures?.regional || {};
 
         const featureMap = {
@@ -116,6 +119,14 @@ const HybridModel = {
             reg_fft_profile_diff: this.clamp01((get(regional.fftProfileDiff, 0) + 2.5) / 5),
             reg_local_contrast_ratio: this.clamp01(Math.min(get(regional.localContrastRatio, 0) / 3, 1)),
             reg_jpeg_block_inconsistency: this.clamp01(Math.min(get(regional.jpegBlockInconsistency, 0) / 3, 1)),
+            col_hist_entropy: this.clamp01(get(colorHist.entropy, 0) / 5),
+            col_hist_uniformity: this.clamp01(get(colorHist.uniformity, 0)),
+            col_hist_spread: this.clamp01(get(colorHist.colorSpread, 0)),
+            illum_consistency: this.clamp01(get(illumination.consistency, 0)),
+            illum_uniformity: this.clamp01(get(illumination.uniformity, 0)),
+            edge_uniformity: this.clamp01(get(edgeStats.edgeUniformity, 0) * 3),
+            edge_sharpness: this.clamp01(get(edgeStats.edgeSharpness, 0)),
+            edge_density: this.clamp01(get(edgeStats.edgeDensity, 0) * 5),
             wavelet_score: this.clamp01(get(waveletScore, 0))
         };
 
@@ -215,23 +226,62 @@ const HybridModel = {
         return this.clamp01(sum / trees.length);
     },
 
+    ensemblePredict(vector, model, threshold) {
+        // Ensemble voting: combinar predicciones de 3 modelos
+        const rfProb = this.predictRandomForest(vector, model);
+        const logisticProb = this.predictLogistic(vector, model);
+        const nnProb = this.predictNN(vector, model);
+
+        // Weighted voting (RF es el mejor, así que le damos más peso)
+        const ensembleProb = this.clamp01(0.5 * rfProb + 0.3 * logisticProb + 0.2 * nnProb);
+
+        // Confidence: qué tan seguros estamos (distancia al threshold)
+        const distanceToThreshold = Math.abs(ensembleProb - threshold);
+        const confidencePenalty = Number.isFinite(model.confidencePenalty) ? model.confidencePenalty : 0.15;
+        const penaltyFactor = Math.max(0, 1 - (confidencePenalty / (distanceToThreshold + 1e-6)));
+
+        return {
+            probability: ensembleProb,
+            rawConfidence: Math.abs(ensembleProb - 0.5) * 2, // 0-1, máx en extremos
+            confidenceAdjusted: Math.max(0, Math.abs(ensembleProb - 0.5) * 2 * penaltyFactor),
+            rfProb,
+            logisticProb,
+            nnProb
+        };
+    },
+
     predict(summary, metrics, waveletScore, advancedFeatures, model) {
         const vector = this.buildFeatureVector(summary, metrics, waveletScore, advancedFeatures, model);
-        const modelType = model.modelType || 'nn';
-        const nnProbability = modelType === 'logistic'
-            ? this.predictLogistic(vector, model)
-            : modelType === 'randomForest'
-                ? this.predictRandomForest(vector, model)
-                : this.predictNN(vector, model);
+        const threshold = Number.isFinite(model.threshold) ? model.threshold : 0.5;
+
+        let nnProbability, finalScore, confidence;
+
+        if (model.ensembleMode && model.ensembleModels) {
+            // Usar ensemble voting
+            const ensemble = this.ensemblePredict(vector, model, threshold);
+            nnProbability = ensemble.probability;
+            confidence = ensemble.confidenceAdjusted;
+        } else {
+            // Fallback a modelo individual
+            const modelType = model.modelType || 'nn';
+            nnProbability = modelType === 'logistic'
+                ? this.predictLogistic(vector, model)
+                : modelType === 'randomForest'
+                    ? this.predictRandomForest(vector, model)
+                    : this.predictNN(vector, model);
+            
+            const distanceToThreshold = Math.abs(nnProbability - threshold);
+            confidence = Math.max(0, Math.abs(nnProbability - 0.5) * 2 * (1 - 0.15 / (distanceToThreshold + 1e-6)));
+        }
 
         const blendAlpha = Number.isFinite(model.blendAlpha) ? model.blendAlpha : 0.55;
-        const finalScore = this.clamp01(blendAlpha * nnProbability + (1 - blendAlpha) * this.clamp01(waveletScore));
-        const threshold = Number.isFinite(model.threshold) ? model.threshold : 0.5;
+        finalScore = this.clamp01(blendAlpha * nnProbability + (1 - blendAlpha) * this.clamp01(waveletScore));
 
         return {
             nnProbability,
             finalScore,
             threshold,
+            confidence: this.clamp01(confidence),
             isAI: finalScore > threshold
         };
     }
