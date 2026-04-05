@@ -315,7 +315,7 @@ function renderEvidence(result) {
                 label: 'Color Distance (Lab)',
                 measure: 'Diferencia de color entre sujeto y fondo. IA suele tener menor variación.',
                 value: normalizeRegional(regional.labDistance, 50),
-                anomalous: regional.labDistance > 40
+                anomalous: regional.labDistance < 15  // BAJO = IA (colores similares)
             });
         }
 
@@ -325,7 +325,7 @@ function renderEvidence(result) {
                 label: 'Sharpness Ratio',
                 measure: 'Ratio de nitidez sujeto/fondo. IA tiende a sobresuavizar.',
                 value: normalizeRegional(regional.sharpnessRatio, 3),
-                anomalous: regional.sharpnessRatio < 0.8
+                anomalous: regional.sharpnessRatio < 1.0  // BAJO = IA (sobresuavizado)
             });
         }
 
@@ -335,7 +335,7 @@ function renderEvidence(result) {
                 label: 'Contour Gradient',
                 measure: 'Gradiente en bordes. IA muestra patrones más regulares.',
                 value: normalizeRegional(regional.contourGradient, 120),
-                anomalous: regional.contourGradient > 80
+                anomalous: regional.contourGradient < 40  // BAJO = IA (bordes regulares)
             });
         }
 
@@ -345,7 +345,17 @@ function renderEvidence(result) {
                 label: 'Skin LBP Diff',
                 measure: 'Diferencia de textura local entre piel (sujeto) y fondo.',
                 value: normalizeRegional(regional.skinLbpDiff + 3, 6),
-                anomalous: Math.abs(regional.skinLbpDiff) < 0.5
+                anomalous: Math.abs(regional.skinLbpDiff) < 0.5  // BAJO= IA (textura similar)
+            });
+        }
+
+        if (Number.isFinite(regional.noiseConsistency)) {
+            regionalSignals.push({
+                key: 'noiseConsistency',
+                label: 'Noise Consistency',
+                measure: 'Consistencia de ruido entre regiones. IA muestra ruido uniforme.',
+                value: normalizeRegional(regional.noiseConsistency, 1),
+                anomalous: regional.noiseConsistency > 0.85  // ALTO = IA (ruido demasiado consistente)
             });
         }
 
@@ -355,7 +365,7 @@ function renderEvidence(result) {
                 label: 'JPEG Block Inconsistency',
                 measure: 'Inconsistencia en bloques JPEG. Detecta generación sintética.',
                 value: normalizeRegional(regional.jpegBlockInconsistency, 3),
-                anomalous: regional.jpegBlockInconsistency > 2
+                anomalous: regional.jpegBlockInconsistency < 0.5  // BAJO/cero = imagen sin compresión JPEG típica = IA
             });
         }
     }
