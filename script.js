@@ -143,9 +143,11 @@ function displayResults(result) {
     const resultCard = resultArea.querySelector('.result-card');
     const anomalyCount = Object.values(result.anomalies || {}).filter(Boolean).length;
     const finalScore = Number.parseFloat(result.aiScore);
-    const thresholdPct = typeof Thresholds !== 'undefined' && Thresholds.classification
-        ? Thresholds.classification.aiThreshold * 100
-        : 56;
+    const thresholdPct = Number.isFinite(Number.parseFloat(result.modelThreshold))
+        ? Number.parseFloat(result.modelThreshold)
+        : (typeof Thresholds !== 'undefined' && Thresholds.classification
+            ? Thresholds.classification.aiThreshold * 100
+            : 56);
     const distanceToThreshold = Number.isFinite(finalScore) ? thresholdPct - finalScore : 0;
     const isNearThreshold = distanceToThreshold >= 0 && distanceToThreshold <= 12;
     const hasConflict = !result.isAI && anomalyCount >= 3 && isNearThreshold;
@@ -197,9 +199,11 @@ function renderModelStats(result) {
     const finalScore = Number.parseFloat(result.aiScore);
     const waveletScore = Number.parseFloat(result.waveletScore);
     const nnScore = Number.parseFloat(result.nnScore);
-    const thresholdPct = typeof Thresholds !== 'undefined' && Thresholds.classification
-        ? Thresholds.classification.aiThreshold * 100
-        : null;
+    const thresholdPct = Number.isFinite(Number.parseFloat(result.modelThreshold))
+        ? Number.parseFloat(result.modelThreshold)
+        : (typeof Thresholds !== 'undefined' && Thresholds.classification
+            ? Thresholds.classification.aiThreshold * 100
+            : null);
 
     if (modelTypeValue) {
         const rawType = String(result.modelType || 'wavelet').toLowerCase();

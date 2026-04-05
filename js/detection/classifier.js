@@ -42,8 +42,10 @@ const Classifier = {
      * @param {number} aiScore - Score de IA
      * @returns {Object} { isAI, confidence }
      */
-    classify(aiScore, metrics = null) {
-        const threshold = Thresholds.classification.aiThreshold;
+    classify(aiScore, metrics = null, thresholdOverride = null) {
+        const threshold = Number.isFinite(thresholdOverride)
+            ? Math.min(1, Math.max(0, thresholdOverride))
+            : Thresholds.classification.aiThreshold;
         const isAI = aiScore > threshold;
 
         const clamp01 = (v) => Math.min(1, Math.max(0, v));

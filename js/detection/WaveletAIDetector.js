@@ -56,16 +56,18 @@ class WaveletAIDetector {
             let finalScore = aiScore;
             let nnProbability = null;
             let modelType = 'wavelet';
+            let modelThreshold = null;
 
             if (typeof HybridModel !== 'undefined' && HybridModel._model) {
                 const hybrid = HybridModel.predict(featureSummary, metrics, aiScore, advancedFeatures, HybridModel._model);
                 finalScore = hybrid.finalScore;
                 nnProbability = hybrid.nnProbability;
                 modelType = 'hybrid';
+                modelThreshold = Number.isFinite(hybrid.threshold) ? hybrid.threshold : null;
             }
             
             // 7. Clasificar
-            const { isAI, confidence } = Classifier.classify(finalScore, metrics);
+            const { isAI, confidence } = Classifier.classify(finalScore, metrics, modelThreshold);
             
             // 8. Generar reporte
             const details = Classifier.generateReport(metrics, finalScore);
@@ -79,6 +81,7 @@ class WaveletAIDetector {
                 waveletScore: (aiScore * 100).toFixed(1),
                 nnScore: nnProbability !== null ? (nnProbability * 100).toFixed(1) : null,
                 modelType,
+                modelThreshold: modelThreshold !== null ? (modelThreshold * 100).toFixed(1) : null,
                 metrics: detailedReport.scores,
                 anomalies: detailedReport.anomalies,
                 features: featureSummary,
