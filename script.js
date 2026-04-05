@@ -256,6 +256,7 @@ function renderEvidence(result) {
     const scores = result.metrics || {};
     const anomalies = result.anomalies || {};
     const lawScores = result.lawScores || null;
+    const regional = result.advancedFeatures?.regional || {};
 
     const readLawValue = (keys, fallback) => {
         if (!lawScores || typeof lawScores !== 'object') return fallback;
@@ -268,6 +269,7 @@ function renderEvidence(result) {
         return fallback;
     };
 
+    // Señales clásicas wavelet
     const signals = [
         {
             key: 'energyDistribution',
@@ -299,12 +301,74 @@ function renderEvidence(result) {
         }
     ];
 
-    const fallbackMean = signals.reduce((sum, s) => sum + s.value, 0) / (signals.length || 1);
+    // Nuevos estadísticos regionales
+    const regionalSignals = [];
+    if (Object.keys(regional).length > 0) {
+        const normalizeRegional = (value, scale = 1) => {
+            const v = Number.isFinite(value) ? value : 0;
+            return Math.min(1, Math.max(0, v / scale));
+        };
+
+        if (Number.isFinite(regional.labDistance)) {
+            regionalSignals.push({
+                key: 'labDistance',
+                label: 'Color Distance (Lab)',
+                measure: 'Diferencia de color entre sujeto y fondo. IA suele tener menor variación.',
+                value: normalizeRegional(regional.labDistance, 50),
+                anomalous: regional.labDistance > 40
+            });
+        }
+
+        if (Number.isFinite(regional.sharpnessRatio)) {
+            regionalSignals.push({
+                key: 'sharpnessRatio',
+                label: 'Sharpness Ratio',
+                measure: 'Ratio de nitidez sujeto/fondo. IA tiende a sobresuavizar.',
+                value: normalizeRegional(regional.sharpnessRatio, 3),
+                anomalous: regional.sharpnessRatio < 0.8
+            });
+        }
+
+        if (Number.isFinite(regional.contourGradient)) {
+            regionalSignals.push({
+                key: 'contourGradient',
+                label: 'Contour Gradient',
+                measure: 'Gradiente en bordes. IA muestra patrones más regulares.',
+                value: normalizeRegional(regional.contourGradient, 120),
+                anomalous: regional.contourGradient > 80
+            });
+        }
+
+        if (Number.isFinite(regional.skinLbpDiff)) {
+            regionalSignals.push({
+                key: 'skinLbpDiff',
+                label: 'Skin LBP Diff',
+                measure: 'Diferencia de textura local entre piel (sujeto) y fondo.',
+                value: normalizeRegional(regional.skinLbpDiff + 3, 6),
+                anomalous: Math.abs(regional.skinLbpDiff) < 0.5
+            });
+        }
+
+        if (Number.isFinite(regional.jpegBlockInconsistency)) {
+            regionalSignals.push({
+                key: 'jpegInconsistency',
+                label: 'JPEG Block Inconsistency',
+                measure: 'Inconsistencia en bloques JPEG. Detecta generación sintética.',
+                value: normalizeRegional(regional.jpegBlockInconsistency, 3),
+                anomalous: regional.jpegBlockInconsistency > 2
+            });
+        }
+    }
+
+    // Combinar todas las señales
+    const allSignals = [...signals, ...regionalSignals];
+    const fallbackMean = allSignals.reduce((sum, s) => sum + s.value, 0) / (allSignals.length || 1);
     const mean = readLawValue(['mean', 'lawMean', 'Mean'], fallbackMean);
     const meanLevel = scoreLevel(mean);
 
     evidenceTableBody.innerHTML = '';
 
+    // Mostrar wavelet signals primero
     signals.forEach((signal) => {
         const level = scoreLevel(signal.value);
         const stateLabel = signal.anomalous ? 'Anomalo ⚠' : level.label;
@@ -323,6 +387,38 @@ function renderEvidence(result) {
         evidenceTableBody.appendChild(row);
     });
 
+    // Separator si hay regional signals
+    if (regionalSignals.length > 0) {
+        const separatorRow = document.createElement('tr');
+        separatorRow.style.borderTop = '2px solid #ddd';
+        separatorRow.innerHTML = `
+            <td colspan="4" style="text-align: center; padding: 8px; font-weight: 600; color: #666;">
+                Regional & Spatial Features
+            </td>
+        `;
+        evidenceTableBody.appendChild(separatorRow);
+    }
+
+    // Mostrar regional signals
+    regionalSignals.forEach((signal) => {
+        const level = scoreLevel(signal.value);
+        const stateLabel = signal.anomalous ? 'Anomalo ⚠' : level.label;
+        const stateClass = signal.anomalous ? 'warning' : level.className;
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${signal.label}</td>
+            <td class="evidence-measure">${signal.measure}</td>
+            <td>${signal.value.toFixed(4)}</td>
+            <td>
+                <span class="signal-badge ${stateClass}">
+                    ${stateLabel}
+                </span>
+            </td>
+        `;
+        evidenceTableBody.appendChild(row);
+    });
+
+    // Mean row
     const meanRow = document.createElement('tr');
     meanRow.innerHTML = `
         <td><strong>Mean</strong></td>
@@ -332,7 +428,7 @@ function renderEvidence(result) {
     `;
     evidenceTableBody.appendChild(meanRow);
 
-    const anomalyCount = signals.filter((s) => s.anomalous).length;
+    const anomalyCount = allSignals.filter((s) => s.anomalous).length;
     if (evidenceWarning) {
         if (anomalyCount >= 1) {
             evidenceWarning.style.display = 'block';
