@@ -17,7 +17,7 @@ class WaveletAIDetector {
         const modelPath =
             typeof window !== 'undefined' && window.HYBRID_MODEL_PATH
                 ? window.HYBRID_MODEL_PATH
-                : 'hybrid-model.fe.pixel.v1.json';
+                : 'hybrid-model.fe.pixel.v2.10k.json';
         await HybridModel.ensureLoaded(modelPath);
     }
 
