@@ -83,6 +83,15 @@ function makePixelKeys(pixelInputSize) {
   return keys;
 }
 
+function makeSurfKeys(surfDescriptorSize) {
+  const keys = [];
+  const total = Math.max(0, Math.min(64, Number(surfDescriptorSize) || 0));
+  for (let i = 0; i < total; i++) {
+    keys.push(`surf_${String(i).padStart(4, '0')}`);
+  }
+  return keys;
+}
+
 function parseArgs() {
   const cfg = {
     datasetRoot: path.join('archive', 'real_vs_fake', 'real-vs-fake'),
@@ -96,6 +105,7 @@ function parseArgs() {
     thresholdObjective: 'balancedAccuracy',
     modelSelectionObjective: 'balancedAccuracy',
     pixelInputSize: 0,
+    surfDescriptorSize: 0,
     logisticEpochs: 180,
     logisticLR: 0.05,
     nnHidden: 18,
@@ -123,6 +133,7 @@ function parseArgs() {
     if (k === '--thresholdObjective') cfg.thresholdObjective = v;
     if (k === '--modelSelectionObjective') cfg.modelSelectionObjective = v;
     if (k === '--pixelInputSize') cfg.pixelInputSize = Number(v);
+    if (k === '--surfDescriptorSize') cfg.surfDescriptorSize = Number(v);
     if (k === '--logisticEpochs') cfg.logisticEpochs = Number(v);
     if (k === '--logisticLR') cfg.logisticLR = Number(v);
     if (k === '--nnHidden') cfg.nnHidden = Number(v);
@@ -222,11 +233,28 @@ function extractPixelFeatureMap(grayImage, pixelInputSize) {
   return map;
 }
 
-function featureMapFromImageData(imageData, pixelInputSize = 0) {
+function extractSurfFeatureMap(surfLikeVector, surfDescriptorSize) {
+  if (!Number.isInteger(surfDescriptorSize) || surfDescriptorSize <= 0) {
+    return {};
+  }
+
+  const size = Math.max(0, Math.min(64, surfDescriptorSize));
+  const vec = Array.isArray(surfLikeVector) ? surfLikeVector : [];
+  const map = {};
+
+  for (let i = 0; i < size; i++) {
+    const value = Number.isFinite(vec[i]) ? vec[i] : 0;
+    map[`surf_${String(i).padStart(4, '0')}`] = clamp01(value);
+  }
+
+  return map;
+}
+
+function featureMapFromImageData(imageData, pixelInputSize = 0, surfDescriptorSize = 0) {
   const grayImage = Preprocessing.toGrayscale(imageData);
   const waveletCoeffs = Wavelet.dwt2D(grayImage, 3);
   const features = FeatureExtractor.extractAll(waveletCoeffs);
-  const advancedFeatures = AdvancedFeatureExtractor.extract(grayImage, imageData);
+  const advancedFeatures = AdvancedFeatureExtractor.extract(grayImage, imageData, { surfDescriptorSize });
   const metrics = AnomalyMetrics.computeAll(features, advancedFeatures);
   const summary = FeatureExtractor.summarize(features);
   const waveletScore = Classifier.computeAIScore(metrics);
@@ -290,6 +318,13 @@ function featureMapFromImageData(imageData, pixelInputSize = 0) {
     wavelet_score: clamp01(waveletScore)
   };
 
+  if (surfDescriptorSize > 0) {
+    return {
+      ...baseMap,
+      ...extractSurfFeatureMap(advancedFeatures?.surfLike, surfDescriptorSize)
+    };
+  }
+
   if (pixelInputSize > 0) {
     return {
       ...baseMap,
@@ -300,14 +335,14 @@ function featureMapFromImageData(imageData, pixelInputSize = 0) {
   return baseMap;
 }
 
-async function buildDataset(files, label, maxSize, pixelInputSize = 0) {
+async function buildDataset(files, label, maxSize, pixelInputSize = 0, surfDescriptorSize = 0) {
   const rows = [];
   let done = 0;
 
   for (const file of files) {
     try {
       const imageData = await imageToImageData(file, maxSize);
-      const fmap = featureMapFromImageData(imageData, pixelInputSize);
+      const fmap = featureMapFromImageData(imageData, pixelInputSize, surfDescriptorSize);
       rows.push({
         file,
         y: label ? 1 : 0,
@@ -807,7 +842,8 @@ async function main() {
   loadDetectorModules(base);
 
   const pixelKeys = cfg.pixelInputSize > 0 ? makePixelKeys(cfg.pixelInputSize) : [];
-  const featureKeys = [...FEATURE_KEYS, ...pixelKeys];
+  const surfKeys = cfg.surfDescriptorSize > 0 ? makeSurfKeys(cfg.surfDescriptorSize) : [];
+  const featureKeys = [...FEATURE_KEYS, ...(surfKeys.length ? surfKeys : pixelKeys)];
 
   const trainRealDir = path.join(base, cfg.datasetRoot, 'train', 'real');
   const trainFakeDir = path.join(base, cfg.datasetRoot, 'train', 'fake');
@@ -824,12 +860,12 @@ async function main() {
   console.log('Valid samples per class:', validReal.length, validFake.length);
 
   const trainRows = [
-    ...(await buildDataset(trainReal, false, cfg.maxSize, cfg.pixelInputSize)),
-    ...(await buildDataset(trainFake, true, cfg.maxSize, cfg.pixelInputSize))
+    ...(await buildDataset(trainReal, false, cfg.maxSize, cfg.pixelInputSize, cfg.surfDescriptorSize)),
+    ...(await buildDataset(trainFake, true, cfg.maxSize, cfg.pixelInputSize, cfg.surfDescriptorSize))
   ];
   const validRows = [
-    ...(await buildDataset(validReal, false, cfg.maxSize, cfg.pixelInputSize)),
-    ...(await buildDataset(validFake, true, cfg.maxSize, cfg.pixelInputSize))
+    ...(await buildDataset(validReal, false, cfg.maxSize, cfg.pixelInputSize, cfg.surfDescriptorSize)),
+    ...(await buildDataset(validFake, true, cfg.maxSize, cfg.pixelInputSize, cfg.surfDescriptorSize))
   ];
 
   const trainY = trainRows.map((r) => r.y);

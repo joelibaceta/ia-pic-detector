@@ -67,9 +67,10 @@ const HybridModel = {
         const fft = advancedFeatures?.fft || {};
         const residual = advancedFeatures?.residual || {};
         const glcm = advancedFeatures?.glcm || {};
+        const surfLike = Array.isArray(advancedFeatures?.surfLike) ? advancedFeatures.surfLike : [];
         const regional = advancedFeatures?.regional || {};
 
-        return {
+        const featureMap = {
             metric_energyDistribution: safeScore(metrics.energyDistribution),
             metric_noisePattern: safeScore(metrics.noisePattern),
             metric_interScaleCorrelation: safeScore(metrics.interScaleCorrelation),
@@ -117,6 +118,13 @@ const HybridModel = {
             reg_jpeg_block_inconsistency: this.clamp01(Math.min(get(regional.jpegBlockInconsistency, 0) / 3, 1)),
             wavelet_score: this.clamp01(get(waveletScore, 0))
         };
+
+        for (let i = 0; i < surfLike.length; i++) {
+            const key = `surf_${String(i).padStart(4, '0')}`;
+            featureMap[key] = this.clamp01(get(surfLike[i], 0));
+        }
+
+        return featureMap;
     },
 
     buildFeatureVector(summary, metrics, waveletScore, advancedFeatures, model) {

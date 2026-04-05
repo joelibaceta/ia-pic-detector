@@ -42,8 +42,9 @@ class WaveletAIDetector {
             
             // 4. Extraer características
             const features = FeatureExtractor.extractAll(waveletCoeffs);
+            const surfDescriptorSize = this.getModelSurfDescriptorSize();
             const advancedFeatures = typeof AdvancedFeatureExtractor !== 'undefined'
-                ? AdvancedFeatureExtractor.extract(grayImage, imageData)
+                ? AdvancedFeatureExtractor.extract(grayImage, imageData, { surfDescriptorSize })
                 : null;
             
             // 5. Calcular métricas de anomalía
@@ -111,8 +112,9 @@ class WaveletAIDetector {
         const grayImage = Preprocessing.toGrayscale(imageData);
         const waveletCoeffs = Wavelet.dwt2D(grayImage, 2); // Solo 2 niveles
         const features = FeatureExtractor.extractAll(waveletCoeffs);
+        const surfDescriptorSize = this.getModelSurfDescriptorSize();
         const advancedFeatures = typeof AdvancedFeatureExtractor !== 'undefined'
-            ? AdvancedFeatureExtractor.extract(grayImage, imageData)
+            ? AdvancedFeatureExtractor.extract(grayImage, imageData, { surfDescriptorSize })
             : null;
         const metrics = AnomalyMetrics.computeAll(features, advancedFeatures);
         const aiScore = Classifier.computeAIScore(metrics);
@@ -146,5 +148,21 @@ class WaveletAIDetector {
             features: features,
             summary: FeatureExtractor.summarize(features)
         };
+    }
+
+    getModelSurfDescriptorSize() {
+        const keys = HybridModel?._model?.featureKeys;
+        if (!Array.isArray(keys) || !keys.length) return 0;
+
+        let maxIndex = -1;
+        for (const key of keys) {
+            if (typeof key !== 'string' || !key.startsWith('surf_')) continue;
+            const idx = Number(key.slice(5));
+            if (Number.isInteger(idx) && idx > maxIndex) {
+                maxIndex = idx;
+            }
+        }
+
+        return maxIndex + 1;
     }
 }

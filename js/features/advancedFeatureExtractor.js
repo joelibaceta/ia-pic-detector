@@ -557,12 +557,118 @@ const AdvancedFeatureExtractor = {
         return avg;
     },
 
-    extract(grayImage, imageData = null) {
+    extractSurfLike(grayImage, descriptorSize = 64) {
+        const size = Math.max(0, Math.min(64, Number(descriptorSize) || 0));
+        if (!size) return [];
+
+        const image = this.ensureSize(grayImage, 160, 64);
+        const { data, width, height } = image;
+        const gx = new Float32Array(width * height);
+        const gy = new Float32Array(width * height);
+        const response = new Float32Array(width * height);
+
+        for (let y = 1; y < height - 1; y++) {
+            for (let x = 1; x < width - 1; x++) {
+                const idx = y * width + x;
+                const dx =
+                    (data[(y - 1) * width + (x + 1)] + 2 * data[idx + 1] + data[(y + 1) * width + (x + 1)]) -
+                    (data[(y - 1) * width + (x - 1)] + 2 * data[idx - 1] + data[(y + 1) * width + (x - 1)]);
+                const dy =
+                    (data[(y + 1) * width + (x - 1)] + 2 * data[(y + 1) * width + x] + data[(y + 1) * width + (x + 1)]) -
+                    (data[(y - 1) * width + (x - 1)] + 2 * data[(y - 1) * width + x] + data[(y - 1) * width + (x + 1)]);
+
+                gx[idx] = dx;
+                gy[idx] = dy;
+                response[idx] = Math.abs(dx) + Math.abs(dy);
+            }
+        }
+
+        const keypoints = [];
+        const step = Math.max(8, Math.floor(Math.min(width, height) / 14));
+        const radius = 10;
+        const margin = radius + 2;
+
+        for (let y = margin; y < height - margin; y += step) {
+            for (let x = margin; x < width - margin; x += step) {
+                const idx = y * width + x;
+                keypoints.push({ x, y, score: response[idx] });
+            }
+        }
+
+        keypoints.sort((a, b) => b.score - a.score);
+        const selected = keypoints.slice(0, 24);
+        if (!selected.length) {
+            return new Array(size).fill(0);
+        }
+
+        const full = new Array(64).fill(0);
+        const counts = new Array(64).fill(0);
+
+        for (const kp of selected) {
+            const cx = kp.x;
+            const cy = kp.y;
+            const cellSize = 5;
+            const patchRadius = cellSize * 2;
+
+            for (let cyCell = 0; cyCell < 4; cyCell++) {
+                for (let cxCell = 0; cxCell < 4; cxCell++) {
+                    let sumDx = 0;
+                    let sumDy = 0;
+                    let sumAbsDx = 0;
+                    let sumAbsDy = 0;
+
+                    const x0 = cx - patchRadius + cxCell * cellSize;
+                    const y0 = cy - patchRadius + cyCell * cellSize;
+
+                    for (let yy = y0; yy < y0 + cellSize; yy++) {
+                        for (let xx = x0; xx < x0 + cellSize; xx++) {
+                            if (xx <= 0 || xx >= width - 1 || yy <= 0 || yy >= height - 1) continue;
+                            const idx = yy * width + xx;
+                            const dx = gx[idx];
+                            const dy = gy[idx];
+                            sumDx += dx;
+                            sumDy += dy;
+                            sumAbsDx += Math.abs(dx);
+                            sumAbsDy += Math.abs(dy);
+                        }
+                    }
+
+                    const cellIndex = (cyCell * 4 + cxCell) * 4;
+                    full[cellIndex] += sumDx;
+                    full[cellIndex + 1] += sumDy;
+                    full[cellIndex + 2] += sumAbsDx;
+                    full[cellIndex + 3] += sumAbsDy;
+                    counts[cellIndex] += 1;
+                    counts[cellIndex + 1] += 1;
+                    counts[cellIndex + 2] += 1;
+                    counts[cellIndex + 3] += 1;
+                }
+            }
+        }
+
+        for (let i = 0; i < 64; i++) {
+            if (counts[i] > 0) full[i] /= counts[i];
+        }
+
+        let norm = 0;
+        for (let i = 0; i < 64; i++) norm += full[i] * full[i];
+        norm = Math.sqrt(norm) || 1;
+
+        for (let i = 0; i < 64; i++) {
+            full[i] = this.clamp((full[i] / norm + 1) / 2, 0, 1);
+        }
+
+        return full.slice(0, size);
+    },
+
+    extract(grayImage, imageData = null, options = null) {
         const lbp = this.extractLBP(grayImage);
         const dct = this.extractDCT(grayImage);
         const fft = this.extractFFT(grayImage);
         const residualObj = this.extractResidual(grayImage);
         const glcm = this.extractResidualGLCM(residualObj);
+        const surfDescriptorSize = Number(options?.surfDescriptorSize) || 0;
+        const surfLike = this.extractSurfLike(grayImage, surfDescriptorSize);
         const regional = typeof RegionalFeatureExtractor !== 'undefined'
             ? RegionalFeatureExtractor.extract(grayImage, imageData)
             : null;
@@ -573,6 +679,7 @@ const AdvancedFeatureExtractor = {
             fft,
             residual: residualObj.stats,
             glcm,
+            surfLike,
             regional
         };
     }

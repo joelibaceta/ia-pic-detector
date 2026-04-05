@@ -8,7 +8,8 @@
     "calibrate:archive": "node calibrate-archive.js",
     "train:hybrid": "node train-hybrid-nn.js",
     "train:fe": "node train-feature-engineering.js",
-    "train:fe:rf": "node train-feature-engineering.js --rfTrees=220 --rfMaxDepth=8 --rfMinSamplesSplit=24 --rfFeatureFraction=0.35"
+    "train:fe:rf": "node train-feature-engineering.js --rfTrees=220 --rfMaxDepth=8 --rfMinSamplesSplit=24 --rfFeatureFraction=0.35",
+    "train:fe:surf": "node train-feature-engineering.js --surfDescriptorSize=32 --rfTrees=220 --rfMaxDepth=8 --rfMinSamplesSplit=24 --rfFeatureFraction=0.35"
   },
   "repository": {
     "type": "git",
