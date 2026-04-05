@@ -1,0 +1,23 @@
+{
+  "name": "ia-pic-detector",
+  "version": "1.0.0",
+  "description": "Análisis Multi-Escala con Wavelets para Detección de Imágenes Generadas por IA",
+  "main": "analyze-metrics.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/joelibaceta/ia-pic-detector.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/joelibaceta/ia-pic-detector/issues"
+  },
+  "homepage": "https://github.com/joelibaceta/ia-pic-detector#readme",
+  "dependencies": {
+    "jimp": "^1.6.0"
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "strategy": "Uniforme",
+  "accuracy": 80,
+  "threshold": 0.7000000000000002,
+  "weights": {
+    "hlLhRatio": 0.16666666666666666,
+    "noisePattern": 0.16666666666666666,
+    "energyDistribution": 0.16666666666666666,
+    "interScaleCorrelation": 0.16666666666666666,
+    "llSmoothness": 0.16666666666666666,
+    "midFrequencyGap": 0.16666666666666666
+  },
+  "results": [
+    {
+      "image": "508010630_10239641674839058_1065749617840723590_n.jpg",
+      "score": 0.8064999999999999,
+      "predicted": "IA",
+      "actual": "Real",
+      "correct": "✗"
+    },
+    {
+      "image": "509879109_10239783617147527_1082183775493285193_n.jpg",
+      "score": 0.6776666666666666,
+      "predicted": "Real",
+      "actual": "Real",
+      "correct": "✓"
+    },
+    {
+      "image": "513931813_10239864276443959_2167545655610779375_n.jpg",
+      "score": 0.5814999999999999,
+      "predicted": "Real",
+      "actual": "Real",
+      "correct": "✓"
+    },
+    {
+      "image": "Gemini_Generated_Image_806c6g806c6g806c.png",
+      "score": 0.7664999999999998,
+      "predicted": "IA",
+      "actual": "IA",
+      "correct": "✓"
+    },
+    {
+      "image": "image.png",
+      "score": 0.8333333333333333,
+      "predicted": "IA",
+      "actual": "IA",
+      "correct": "✓"
+    }
+  ]
+}

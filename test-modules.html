@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test de Carga de Módulos</title>
+</head>
+<body>
+    <h1>Test de Carga de Módulos</h1>
+    <pre id="output"></pre>
+
+    <!-- Core modules -->
+    <script src="js/core/utils.js"></script>
+    <script src="js/core/preprocessing.js"></script>
+    <script src="js/core/wavelet.js"></script>
+    <script src="js/core/statistics.js"></script>
+    <script src="js/core/correlation.js"></script>
+    
+    <!-- Feature extraction -->
+    <script src="js/features/featureExtractor.js"></script>
+    
+    <!-- Detection modules -->
+    <script src="js/detection/thresholds.js"></script>
+    <script src="js/detection/anomalyMetrics.js"></script>
+    <script src="js/detection/classifier.js"></script>
+    <script src="js/detection/WaveletAIDetector.js"></script>
+    
+    <!-- Main entry point -->
+    <script src="js/detector.js"></script>
+
+    <script>
+        const output = document.getElementById('output');
+        let log = '';
+        
+        function check(name, obj) {
+            const exists = typeof obj !== 'undefined';
+            log += `${exists ? '✓' : '✗'} ${name}: ${exists ? 'OK' : 'FALTA'}\n`;
+        }
+        
+        check('Utils', Utils);
+        check('Preprocessing', Preprocessing);
+        check('Wavelet', Wavelet);
+        check('Statistics', Statistics);
+        check('Correlation', Correlation);
+        check('FeatureExtractor', FeatureExtractor);
+        check('Thresholds', Thresholds);
+        check('AnomalyMetrics', AnomalyMetrics);
+        check('Classifier', Classifier);
+        check('WaveletAIDetector', WaveletAIDetector);
+        check('waveletDetector', waveletDetector);
+        check('detector', detector);
+        check('detectAIImage', detectAIImage);
+        
+        output.textContent = log;
+        
+        if (typeof detector !== 'undefined') {
+            console.log('✓ Todos los módulos cargados correctamente');
+            console.log('Detector version:', detector.version);
+        }
+    </script>
+</body>
+</html>

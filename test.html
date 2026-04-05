@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Detector - Test Suite</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        h1 {
+            color: #1ec78b;
+            margin-bottom: 10px;
+            font-size: 32px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 16px;
+        }
+
+        .test-section {
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 20px;
+        }
+
+        .test-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .test-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .test-status {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .status-pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-running {
+            background: #cfe2ff;
+            color: #084298;
+        }
+
+        .status-pass {
+            background: #d1e7dd;
+            color: #0f5132;
+        }
+
+        .status-fail {
+            background: #f8d7da;
+            color: #842029;
+        }
+
+        .test-image {
+            max-width: 300px;
+            max-height: 300px;
+            border-radius: 8px;
+            margin: 15px 0;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .test-results {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 15px;
+        }
+
+        .result-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .result-row:last-child {
+            border-bottom: none;
+        }
+
+        .result-label {
+            font-weight: 600;
+            color: #495057;
+        }
+
+        .result-value {
+            color: #212529;
+            font-family: monospace;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .metric-card {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #1ec78b;
+        }
+
+        .metric-label {
+            font-size: 12px;
+            color: #6c757d;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 5px;
+        }
+
+        .metric-value {
+            font-size: 20px;
+            font-weight: 600;
+            color: #212529;
+        }
+
+        .run-btn {
+            background: #1ec78b;
+            color: white;
+            border: none;
+            padding: 14px 32px;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 20px;
+        }
+
+        .run-btn:hover {
+            background: #19b577;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(30, 199, 139, 0.3);
+        }
+
+        .run-btn:disabled {
+            background: #ddd;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .details-text {
+            color: #495057;
+            line-height: 1.6;
+            margin-top: 10px;
+            padding: 15px;
+            background: white;
+            border-radius: 6px;
+        }
+
+        .detection-results {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .detection-card {
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            overflow: hidden;
+            background: white;
+        }
+
+        .detection-header {
+            padding: 12px 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 14px;
+        }
+
+        .detection-body {
+            padding: 12px 15px;
+            background: #f8f9fa;
+        }
+
+        .summary-box {
+            background: #e7f3ff;
+            border-left: 4px solid #0d6efd;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 15px;
+            color: #084298;
+        }
+
+        .loader {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #1ec78b;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            margin-left: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .alert {
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        .alert-info {
+            background: #cfe2ff;
+            color: #084298;
+            border-left: 4px solid #0d6efd;
+        }
+
+        .summary-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #1ec78b 0%, #17a871 100%);
+            padding: 25px;
+            border-radius: 12px;
+            color: white;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 36px;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 AI Detector Test Suite</h1>
+        <p class="subtitle">Validación del sistema de detección con múltiples imágenes</p>
+
+        <div class="alert alert-info">
+            <strong>ℹ️ Información:</strong> Esta suite ejecuta pruebas automatizadas para validar el funcionamiento del detector de imágenes IA usando análisis wavelet multi-escala.
+        </div>
+
+        <!-- Test 1: Carga de Imagen -->
+        <div class="test-section" id="test1">
+            <div class="test-header">
+                <div class="test-title">Test 1: Carga de Imágenes</div>
+                <div class="test-status status-pending" id="status1">Pendiente</div>
+            </div>
+            <div class="test-content">
+                <p>Validando la capacidad de cargar y procesar todas las imágenes de prueba</p>
+                <img id="testImage" class="test-image" style="display: none;">
+                <div class="test-results" id="results1" style="display: none;"></div>
+            </div>
+        </div>
+
+        <!-- Test 2: Análisis Wavelet -->
+        <div class="test-section" id="test2">
+            <div class="test-header">
+                <div class="test-title">Test 2: Análisis Wavelet DWT</div>
+                <div class="test-status status-pending" id="status2">Pendiente</div>
+            </div>
+            <div class="test-content">
+                <p>Verificando la descomposición wavelet y extracción de características</p>
+                <div class="test-results" id="results2" style="display: none;"></div>
+            </div>
+        </div>
+
+        <!-- Test 3: Cálculo de Métricas -->
+        <div class="test-section" id="test3">
+            <div class="test-header">
+                <div class="test-title">Test 3: Métricas de Detección</div>
+                <div class="test-status status-pending" id="status3">Pendiente</div>
+            </div>
+            <div class="test-content">
+                <p>Validando las 6 métricas principales de detección de IA</p>
+                <div class="test-results" id="results3" style="display: none;"></div>
+            </div>
+        </div>
+
+        <!-- Test 4: Detección Completa -->
+        <div class="test-section" id="test4">
+            <div class="test-header">
+                <div class="test-title">Test 4: Detección Completa</div>
+                <div class="test-status status-pending" id="status4">Pendiente</div>
+            </div>
+            <div class="test-content">
+                <p>Ejecutando análisis completo de detección de IA</p>
+                <div class="test-results" id="results4" style="display: none;"></div>
+            </div>
+        </div>
+
+        <button class="run-btn" id="runTests" onclick="runAllTests()">
+            ▶️ Ejecutar Tests
+        </button>
+
+        <!-- Resumen -->
+        <div class="summary-stats" id="summary" style="display: none;">
+            <div class="stat-card">
+                <div class="stat-value" id="passedCount">0</div>
+                <div class="stat-label">Tests Pasados</div>
+            </div>
+            <div class="stat-card" style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);">
+                <div class="stat-value" id="failedCount">0</div>
+                <div class="stat-label">Tests Fallidos</div>
+            </div>
+            <div class="stat-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                <div class="stat-value" id="executionTime">0s</div>
+                <div class="stat-label">Tiempo de Ejecución</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Core modules -->
+    <script src="js/core/utils.js"></script>
+    <script src="js/core/preprocessing.js"></script>
+    <script src="js/core/wavelet.js"></script>
+    <script src="js/core/statistics.js"></script>
+    <script src="js/core/correlation.js"></script>
+    
+    <!-- Feature extraction -->
+    <script src="js/features/featureExtractor.js"></script>
+    
+    <!-- Detection modules -->
+    <script src="js/detection/thresholds.js"></script>
+    <script src="js/detection/anomalyMetrics.js"></script>
+    <script src="js/detection/classifier.js"></script>
+    <script src="js/detection/WaveletAIDetector.js"></script>
+    
+    <!-- Main entry point -->
+    <script src="js/detector.js"></script>
+    
+    <!-- Test suite -->
+    <script src="test-suite.js"></script>
+</body>
+</html>

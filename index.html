@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Image Detector</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <!-- Panel Izquierdo: Upload -->
+            <div class="left-panel">
+                <div class="logo">AI Detector</div>
+                
+                <h1 class="title">Detect AI-Generated Images</h1>
+                <div class="title-underline"></div>
+                
+                <p class="subtitle">Upload an image to analyze if it was created by AI</p>
+                
+                <div class="upload-area" id="uploadArea">
+                    <div class="upload-content" id="uploadContent">
+                        <svg class="upload-icon" xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="17 8 12 3 7 8"></polyline>
+                            <line x1="12" y1="3" x2="12" y2="15"></line>
+                        </svg>
+                        <p class="upload-text">Drag & Drop your image here</p>
+                        <p class="upload-subtext">or</p>
+                        <button class="browse-btn" onclick="document.getElementById('fileInput').click()">
+                            Browse Files
+                        </button>
+                        <input type="file" id="fileInput" accept="image/*" hidden>
+                        <p class="file-info">Supported formats: JPG, PNG, WebP (Max 10MB)</p>
+                    </div>
+                    
+                    <div class="preview-container" id="previewContainer" style="display: none;">
+                        <img id="previewImage" src="" alt="Preview">
+                        <button class="remove-btn" id="removeBtn">✕</button>
+                    </div>
+                </div>
+                
+                <button class="analyze-btn" id="analyzeBtn" disabled>
+                    <span id="btnText">Analyze Image</span>
+                    <span id="btnLoader" class="loader" style="display: none;"></span>
+                </button>
+                
+                <div class="result-area" id="resultArea" style="display: none;">
+                    <div class="result-card">
+                        <div class="result-icon" id="resultIcon"></div>
+                        <h3 class="result-title" id="resultTitle"></h3>
+                        <p class="result-confidence">Confidence: <span id="confidence"></span></p>
+                        <p class="result-description" id="resultDescription"></p>
+                    </div>
+                </div>
+                
+                <div class="footer-links">
+                    <a href="#privacy">Privacy Policy</a>
+                    <span>•</span>
+                    <a href="#terms">Terms & Conditions</a>
+                </div>
+            </div>
+            
+            <!-- Panel Derecho: Información -->
+            <div class="right-panel">
+                <div class="info-content">
+                    <h2 class="info-title">How It Works</h2>
+                    <div class="title-underline-white"></div>
+                    
+                    <p class="info-intro">
+                        Our AI detection system uses advanced machine learning to identify synthetic images.
+                    </p>
+                    
+                    <div class="info-steps">
+                        <div class="step">
+                            <div class="step-number">1</div>
+                            <div class="step-content">
+                                <h4>Upload Image</h4>
+                                <p>Select or drag an image you want to analyze</p>
+                            </div>
+                        </div>
+                        
+                        <div class="step">
+                            <div class="step-number">2</div>
+                            <div class="step-content">
+                                <h4>Deep Analysis</h4>
+                                <p>Our AI examines patterns, artifacts, and inconsistencies typical of generated images</p>
+                            </div>
+                        </div>
+                        
+                        <div class="step">
+                            <div class="step-number">3</div>
+                            <div class="step-content">
+                                <h4>Get Results</h4>
+                                <p>Receive a confidence score indicating the likelihood of AI generation</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="info-features">
+                        <h3>Key Features</h3>
+                        <ul>
+                            <li>✓ Fast processing (2-3 seconds)</li>
+                            <li>✓ High accuracy rate (95%+)</li>
+                            <li>✓ Privacy-focused (images not stored)</li>
+                            <li>✓ Supports multiple formats</li>
+                            <li>✓ Free to use</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="info-note">
+                        <strong>Note:</strong> This tool provides estimates and should not be used as definitive proof. AI detection is an evolving field.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Core modules -->
+    <script src="js/core/utils.js"></script>
+    <script src="js/core/preprocessing.js"></script>
+    <script src="js/core/wavelet.js"></script>
+    <script src="js/core/statistics.js"></script>
+    <script src="js/core/correlation.js"></script>
+    
+    <!-- Feature extraction -->
+    <script src="js/features/featureExtractor.js"></script>
+    
+    <!-- Detection modules -->
+    <script src="js/detection/thresholds.js"></script>
+    <script src="js/detection/anomalyMetrics.js"></script>
+    <script src="js/detection/classifier.js"></script>
+    <script src="js/detection/WaveletAIDetector.js"></script>
+    
+    <!-- Main entry point -->
+    <script src="js/detector.js"></script>
+    
+    <!-- UI -->
+    <script src="script.js"></script>
+</body>
+</html>

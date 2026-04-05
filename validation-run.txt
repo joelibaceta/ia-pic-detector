@@ -1,0 +1,106 @@
+VALIDATION_RESULTS_START
+{
+  "threshold": 0.7,
+  "summary": {
+    "total": 6,
+    "correct": 5,
+    "accuracy": 83.33333333333334,
+    "tp": 2,
+    "tn": 3,
+    "fp": 0,
+    "fn": 1
+  },
+  "results": [
+    {
+      "file": "ia1.png",
+      "actual": true,
+      "predicted": true,
+      "aiScore": 0.8457,
+      "confidence": 74.4,
+      "metrics": {
+        "energyDistribution": 0.9837,
+        "noisePattern": 1,
+        "interScaleCorrelation": 1,
+        "llSmoothness": 0,
+        "hlLhRatio": 1,
+        "midFrequencyGap": 0.991
+      }
+    },
+    {
+      "file": "ia2.png",
+      "actual": true,
+      "predicted": true,
+      "aiScore": 0.778,
+      "confidence": 63.3,
+      "metrics": {
+        "energyDistribution": 0.9836,
+        "noisePattern": 1,
+        "interScaleCorrelation": 1,
+        "llSmoothness": 0,
+        "hlLhRatio": 0.5995,
+        "midFrequencyGap": 0.9932
+      }
+    },
+    {
+      "file": "ia3.jpeg",
+      "actual": true,
+      "predicted": false,
+      "aiScore": 0.6695,
+      "confidence": 44.7,
+      "metrics": {
+        "energyDistribution": 0.8735,
+        "noisePattern": 1,
+        "interScaleCorrelation": 1,
+        "llSmoothness": 0,
+        "hlLhRatio": 0.1049,
+        "midFrequencyGap": 0.9595
+      }
+    },
+    {
+      "file": "real1.jpg",
+      "actual": false,
+      "predicted": false,
+      "aiScore": 0.6861,
+      "confidence": 43.3,
+      "metrics": {
+        "energyDistribution": 0.9803,
+        "noisePattern": 1,
+        "interScaleCorrelation": 1,
+        "llSmoothness": 0,
+        "hlLhRatio": 0.065,
+        "midFrequencyGap": 0.9907
+      }
+    },
+    {
+      "file": "real2.png",
+      "actual": false,
+      "predicted": false,
+      "aiScore": 0.6039,
+      "confidence": 50.1,
+      "metrics": {
+        "energyDistribution": 0.6804,
+        "noisePattern": 0,
+        "interScaleCorrelation": 1,
+        "llSmoothness": 0,
+        "hlLhRatio": 1,
+        "midFrequencyGap": 0.8717
+      }
+    },
+    {
+      "file": "real3.jpg",
+      "actual": false,
+      "predicted": false,
+      "aiScore": 0.5858,
+      "confidence": 51.6,
+      "metrics": {
+        "energyDistribution": 0.9771,
+        "noisePattern": 0.4458,
+        "interScaleCorrelation": 1,
+        "llSmoothness": 0,
+        "hlLhRatio": 0.034,
+        "midFrequencyGap": 0.9889
+      }
+    }
+  ]
+}
+VALIDATION_RESULTS_END

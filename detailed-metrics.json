@@ -1,0 +1,72 @@
+{
+  "images/508010630_10239641674839058_1065749617840723590_n.jpg": {
+    "score": 0.695,
+    "metrics": {
+      "energyDistribution": "100.0",
+      "noisePattern": "100.0",
+      "interScaleCorrelation": "100.0",
+      "llSmoothness": "0.0",
+      "hlLhRatio": "83.9",
+      "midFrequencyGap": "100.0"
+    },
+    "aiScore": "69.5",
+    "isAI": false,
+    "confidence": 13.1
+  },
+  "images/509879109_10239783617147527_1082183775493285193_n.jpg": {
+    "score": 0.672,
+    "metrics": {
+      "energyDistribution": "100.0",
+      "noisePattern": "100.0",
+      "interScaleCorrelation": "100.0",
+      "llSmoothness": "0.0",
+      "hlLhRatio": "6.6",
+      "midFrequencyGap": "100.0"
+    },
+    "aiScore": "67.2",
+    "isAI": false,
+    "confidence": 16
+  },
+  "images/513931813_10239864276443959_2167545655610779375_n.jpg": {
+    "score": 0.616,
+    "metrics": {
+      "energyDistribution": "100.0",
+      "noisePattern": "45.4",
+      "interScaleCorrelation": "100.0",
+      "llSmoothness": "0.0",
+      "hlLhRatio": "3.5",
+      "midFrequencyGap": "100.0"
+    },
+    "aiScore": "61.6",
+    "isAI": false,
+    "confidence": 22.9
+  },
+  "images/Gemini_Generated_Image_806c6g806c6g806c.png": {
+    "score": 0.688,
+    "metrics": {
+      "energyDistribution": "100.0",
+      "noisePattern": "100.0",
+      "interScaleCorrelation": "100.0",
+      "llSmoothness": "0.0",
+      "hlLhRatio": "59.9",
+      "midFrequencyGap": "100.0"
+    },
+    "aiScore": "68.8",
+    "isAI": false,
+    "confidence": 14
+  },
+  "images/image.png": {
+    "score": 0.7,
+    "metrics": {
+      "energyDistribution": "100.0",
+      "noisePattern": "100.0",
+      "interScaleCorrelation": "100.0",
+      "llSmoothness": "0.0",
+      "hlLhRatio": "100.0",
+      "midFrequencyGap": "100.0"
+    },
+    "aiScore": "70.0",
+    "isAI": false,
+    "confidence": 12.5
+  }
+}
