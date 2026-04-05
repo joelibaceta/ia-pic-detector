@@ -206,8 +206,21 @@ function renderModelStats(result) {
             : null);
 
     if (modelTypeValue) {
-        const rawType = String(result.modelType || 'wavelet').toLowerCase();
-        modelTypeValue.textContent = rawType === 'hybrid' ? 'Hibrido (Wavelet + ML)' : 'Wavelet clasico';
+        let displayType = 'Wavelet Clásico';
+        if (result.modelType === 'hybrid') {
+            displayType = 'Híbrido (Wavelet + ML)';
+        } else if (result.nnScore) {
+            // Detecta el tipo específico del modelo híbrido
+            const modelPath = window.HYBRID_MODEL_PATH || '';
+            if (modelPath.includes('randomForest') || modelPath.includes('rf')) {
+                displayType = 'Híbrido (Wavelet + Random Forest)';
+            } else if (modelPath.includes('logistic')) {
+                displayType = 'Híbrido (Wavelet + Logistic)';
+            } else {
+                displayType = 'Híbrido (Wavelet + Neural Net)';
+            }
+        }
+        modelTypeValue.textContent = displayType;
     }
     if (finalScoreValue) {
         finalScoreValue.textContent = Number.isFinite(finalScore) ? `${finalScore.toFixed(1)}%` : '-';
