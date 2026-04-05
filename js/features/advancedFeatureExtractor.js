@@ -557,19 +557,23 @@ const AdvancedFeatureExtractor = {
         return avg;
     },
 
-    extract(grayImage) {
+    extract(grayImage, imageData = null) {
         const lbp = this.extractLBP(grayImage);
         const dct = this.extractDCT(grayImage);
         const fft = this.extractFFT(grayImage);
         const residualObj = this.extractResidual(grayImage);
         const glcm = this.extractResidualGLCM(residualObj);
+        const regional = typeof RegionalFeatureExtractor !== 'undefined'
+            ? RegionalFeatureExtractor.extract(grayImage, imageData)
+            : null;
 
         return {
             lbp,
             dct,
             fft,
             residual: residualObj.stats,
-            glcm
+            glcm,
+            regional
         };
     }
 };

@@ -43,7 +43,7 @@ class WaveletAIDetector {
             // 4. Extraer características
             const features = FeatureExtractor.extractAll(waveletCoeffs);
             const advancedFeatures = typeof AdvancedFeatureExtractor !== 'undefined'
-                ? AdvancedFeatureExtractor.extract(grayImage)
+                ? AdvancedFeatureExtractor.extract(grayImage, imageData)
                 : null;
             
             // 5. Calcular métricas de anomalía
@@ -112,7 +112,7 @@ class WaveletAIDetector {
         const waveletCoeffs = Wavelet.dwt2D(grayImage, 2); // Solo 2 niveles
         const features = FeatureExtractor.extractAll(waveletCoeffs);
         const advancedFeatures = typeof AdvancedFeatureExtractor !== 'undefined'
-            ? AdvancedFeatureExtractor.extract(grayImage)
+            ? AdvancedFeatureExtractor.extract(grayImage, imageData)
             : null;
         const metrics = AnomalyMetrics.computeAll(features, advancedFeatures);
         const aiScore = Classifier.computeAIScore(metrics);

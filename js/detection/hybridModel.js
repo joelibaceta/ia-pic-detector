@@ -67,6 +67,7 @@ const HybridModel = {
         const fft = advancedFeatures?.fft || {};
         const residual = advancedFeatures?.residual || {};
         const glcm = advancedFeatures?.glcm || {};
+        const regional = advancedFeatures?.regional || {};
 
         return {
             metric_energyDistribution: safeScore(metrics.energyDistribution),
@@ -105,6 +106,15 @@ const HybridModel = {
             adv_glcm_homogeneity: this.clamp01(get(glcm.homogeneity, 0)),
             adv_glcm_energy: this.clamp01(Math.min(get(glcm.energy, 0) / 0.3, 1)),
             adv_glcm_correlation: this.clamp01((get(glcm.correlation, 0) + 1) / 2),
+            reg_lab_distance: this.clamp01(Math.min(get(regional.labDistance, 0) / 50, 1)),
+            reg_sharpness_ratio: this.clamp01(Math.min(get(regional.sharpnessRatio, 0) / 3, 1)),
+            reg_contour_gradient: this.clamp01(Math.min(get(regional.contourGradient, 0) / 120, 1)),
+            reg_skin_lbp_diff: this.clamp01((get(regional.skinLbpDiff, 0) + 3) / 6),
+            reg_skin_glcm_diff: this.clamp01((get(regional.skinGlcmDiff, 0) + 20) / 40),
+            reg_noise_consistency: this.clamp01(get(regional.noiseConsistency, 0)),
+            reg_fft_profile_diff: this.clamp01((get(regional.fftProfileDiff, 0) + 2.5) / 5),
+            reg_local_contrast_ratio: this.clamp01(Math.min(get(regional.localContrastRatio, 0) / 3, 1)),
+            reg_jpeg_block_inconsistency: this.clamp01(Math.min(get(regional.jpegBlockInconsistency, 0) / 3, 1)),
             wavelet_score: this.clamp01(get(waveletScore, 0))
         };
     },
@@ -178,12 +188,33 @@ const HybridModel = {
         return this.sigmoid(z);
     },
 
+    predictRFTree(tree, row) {
+        let node = tree;
+        while (node && !node.leaf) {
+            node = row[node.feature] <= node.threshold ? node.left : node.right;
+        }
+        return node?.prob ?? 0.5;
+    },
+
+    predictRandomForest(vector, model) {
+        const x = this.normalize(vector, model.mean, model.std);
+        const trees = Array.isArray(model.trees) ? model.trees : [];
+        if (!trees.length) return 0.5;
+        let sum = 0;
+        for (const tree of trees) {
+            sum += this.predictRFTree(tree, x);
+        }
+        return this.clamp01(sum / trees.length);
+    },
+
     predict(summary, metrics, waveletScore, advancedFeatures, model) {
         const vector = this.buildFeatureVector(summary, metrics, waveletScore, advancedFeatures, model);
         const modelType = model.modelType || 'nn';
         const nnProbability = modelType === 'logistic'
             ? this.predictLogistic(vector, model)
-            : this.predictNN(vector, model);
+            : modelType === 'randomForest'
+                ? this.predictRandomForest(vector, model)
+                : this.predictNN(vector, model);
 
         const blendAlpha = Number.isFinite(model.blendAlpha) ? model.blendAlpha : 0.55;
         const finalScore = this.clamp01(blendAlpha * nnProbability + (1 - blendAlpha) * this.clamp01(waveletScore));

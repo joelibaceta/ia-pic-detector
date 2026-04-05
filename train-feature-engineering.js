@@ -20,6 +20,7 @@ function loadDetectorModules(base) {
   loadScriptAndExport(path.join(base, 'js/core/preprocessing.js'), ['Preprocessing']);
   loadScriptAndExport(path.join(base, 'js/core/wavelet.js'), ['Wavelet']);
   loadScriptAndExport(path.join(base, 'js/features/featureExtractor.js'), ['FeatureExtractor']);
+  loadScriptAndExport(path.join(base, 'js/features/regionalFeatureExtractor.js'), ['RegionalFeatureExtractor']);
   loadScriptAndExport(path.join(base, 'js/features/advancedFeatureExtractor.js'), ['AdvancedFeatureExtractor']);
   loadScriptAndExport(path.join(base, 'js/detection/thresholds.js'), ['Thresholds']);
   loadScriptAndExport(path.join(base, 'js/detection/anomalyMetrics.js'), ['AnomalyMetrics']);
@@ -61,6 +62,15 @@ const FEATURE_KEYS = [
   'adv_glcm_homogeneity',
   'adv_glcm_energy',
   'adv_glcm_correlation',
+  'reg_lab_distance',
+  'reg_sharpness_ratio',
+  'reg_contour_gradient',
+  'reg_skin_lbp_diff',
+  'reg_skin_glcm_diff',
+  'reg_noise_consistency',
+  'reg_fft_profile_diff',
+  'reg_local_contrast_ratio',
+  'reg_jpeg_block_inconsistency',
   'wavelet_score'
 ];
 
@@ -91,6 +101,10 @@ function parseArgs() {
     nnHidden: 18,
     nnEpochs: 80,
     nnLR: 0.01,
+    rfTrees: 160,
+    rfMaxDepth: 8,
+    rfMinSamplesSplit: 24,
+    rfFeatureFraction: 0.35,
     modelPath: 'hybrid-model.feature-engineered.json',
     reportPath: 'feature-engineering-report.json'
   };
@@ -114,6 +128,10 @@ function parseArgs() {
     if (k === '--nnHidden') cfg.nnHidden = Number(v);
     if (k === '--nnEpochs') cfg.nnEpochs = Number(v);
     if (k === '--nnLR') cfg.nnLR = Number(v);
+    if (k === '--rfTrees') cfg.rfTrees = Number(v);
+    if (k === '--rfMaxDepth') cfg.rfMaxDepth = Number(v);
+    if (k === '--rfMinSamplesSplit') cfg.rfMinSamplesSplit = Number(v);
+    if (k === '--rfFeatureFraction') cfg.rfFeatureFraction = Number(v);
     if (k === '--modelPath') cfg.modelPath = v;
     if (k === '--reportPath') cfg.reportPath = v;
   }
@@ -208,7 +226,7 @@ function featureMapFromImageData(imageData, pixelInputSize = 0) {
   const grayImage = Preprocessing.toGrayscale(imageData);
   const waveletCoeffs = Wavelet.dwt2D(grayImage, 3);
   const features = FeatureExtractor.extractAll(waveletCoeffs);
-  const advancedFeatures = AdvancedFeatureExtractor.extract(grayImage);
+  const advancedFeatures = AdvancedFeatureExtractor.extract(grayImage, imageData);
   const metrics = AnomalyMetrics.computeAll(features, advancedFeatures);
   const summary = FeatureExtractor.summarize(features);
   const waveletScore = Classifier.computeAIScore(metrics);
@@ -219,6 +237,7 @@ function featureMapFromImageData(imageData, pixelInputSize = 0) {
   const fft = advancedFeatures?.fft || {};
   const residual = advancedFeatures?.residual || {};
   const glcm = advancedFeatures?.glcm || {};
+  const regional = advancedFeatures?.regional || {};
 
   const baseMap = {
     metric_energyDistribution: m('energyDistribution'),
@@ -257,6 +276,16 @@ function featureMapFromImageData(imageData, pixelInputSize = 0) {
     adv_glcm_homogeneity: clamp01(glcm.homogeneity || 0),
     adv_glcm_energy: clamp01(Math.min((glcm.energy || 0) / 0.3, 1)),
     adv_glcm_correlation: clamp01(((glcm.correlation || 0) + 1) / 2),
+
+    reg_lab_distance: clamp01(Math.min((regional.labDistance || 0) / 50, 1)),
+    reg_sharpness_ratio: clamp01(Math.min((regional.sharpnessRatio || 0) / 3, 1)),
+    reg_contour_gradient: clamp01(Math.min((regional.contourGradient || 0) / 120, 1)),
+    reg_skin_lbp_diff: clamp01(((regional.skinLbpDiff || 0) + 3) / 6),
+    reg_skin_glcm_diff: clamp01(((regional.skinGlcmDiff || 0) + 20) / 40),
+    reg_noise_consistency: clamp01(regional.noiseConsistency || 0),
+    reg_fft_profile_diff: clamp01(((regional.fftProfileDiff || 0) + 2.5) / 5),
+    reg_local_contrast_ratio: clamp01(Math.min((regional.localContrastRatio || 0) / 3, 1)),
+    reg_jpeg_block_inconsistency: clamp01(Math.min((regional.jpegBlockInconsistency || 0) / 3, 1)),
 
     wavelet_score: clamp01(waveletScore)
   };
@@ -570,6 +599,148 @@ function evaluateNN(trainX, trainY, validX, validY, hiddenSize, epochs, lr, seed
   };
 }
 
+function giniImpurity(labels) {
+  const n = labels.length;
+  if (!n) return 0;
+  let ones = 0;
+  for (let i = 0; i < n; i++) ones += labels[i] ? 1 : 0;
+  const p1 = ones / n;
+  const p0 = 1 - p1;
+  return 1 - (p1 * p1 + p0 * p0);
+}
+
+function bootstrapIndices(n, rnd) {
+  const idx = new Array(n);
+  for (let i = 0; i < n; i++) idx[i] = Math.floor(rnd() * n);
+  return idx;
+}
+
+function randomFeatureSubset(total, fraction, rnd) {
+  const take = Math.max(1, Math.floor(total * fraction));
+  const all = Array.from({ length: total }, (_, i) => i);
+  for (let i = all.length - 1; i > 0; i--) {
+    const j = Math.floor(rnd() * (i + 1));
+    [all[i], all[j]] = [all[j], all[i]];
+  }
+  return all.slice(0, take);
+}
+
+function bestRandomSplit(X, y, indices, featureSubset, rnd) {
+  let best = null;
+  const parentLabels = indices.map((i) => y[i]);
+  const parentGini = giniImpurity(parentLabels);
+  if (parentGini === 0) return null;
+
+  for (const f of featureSubset) {
+    const values = indices.map((i) => X[i][f]);
+    let minV = values[0];
+    let maxV = values[0];
+    for (let i = 1; i < values.length; i++) {
+      if (values[i] < minV) minV = values[i];
+      if (values[i] > maxV) maxV = values[i];
+    }
+    if (!Number.isFinite(minV) || !Number.isFinite(maxV) || maxV - minV < 1e-9) continue;
+
+    const tries = Math.min(18, Math.max(6, Math.floor(Math.sqrt(values.length))));
+    for (let t = 0; t < tries; t++) {
+      const threshold = minV + rnd() * (maxV - minV);
+      const left = [];
+      const right = [];
+      for (const rowIdx of indices) {
+        if (X[rowIdx][f] <= threshold) left.push(rowIdx);
+        else right.push(rowIdx);
+      }
+
+      if (!left.length || !right.length) continue;
+
+      const leftG = giniImpurity(left.map((i) => y[i]));
+      const rightG = giniImpurity(right.map((i) => y[i]));
+      const weighted = (left.length / indices.length) * leftG + (right.length / indices.length) * rightG;
+      const gain = parentGini - weighted;
+
+      if (!best || gain > best.gain) {
+        best = { feature: f, threshold, left, right, gain };
+      }
+    }
+  }
+
+  return best;
+}
+
+function buildRFTree(X, y, indices, depth, cfg, rnd) {
+  const labels = indices.map((i) => y[i]);
+  const n = labels.length;
+  const p = labels.reduce((a, b) => a + (b ? 1 : 0), 0) / (n || 1);
+
+  if (depth >= cfg.rfMaxDepth || n < cfg.rfMinSamplesSplit || p <= 0 || p >= 1) {
+    return { leaf: true, prob: p };
+  }
+
+  const featureSubset = randomFeatureSubset(X[0].length, cfg.rfFeatureFraction, rnd);
+  const split = bestRandomSplit(X, y, indices, featureSubset, rnd);
+
+  if (!split || split.gain <= 1e-7) {
+    return { leaf: true, prob: p };
+  }
+
+  return {
+    leaf: false,
+    feature: split.feature,
+    threshold: split.threshold,
+    left: buildRFTree(X, y, split.left, depth + 1, cfg, rnd),
+    right: buildRFTree(X, y, split.right, depth + 1, cfg, rnd)
+  };
+}
+
+function predictRFTree(tree, row) {
+  let node = tree;
+  while (!node.leaf) {
+    node = row[node.feature] <= node.threshold ? node.left : node.right;
+  }
+  return node.prob;
+}
+
+function trainRandomForest(trainX, trainY, cfg) {
+  const rnd = mulberry32(cfg.seed + 909);
+  const trees = [];
+
+  for (let t = 0; t < cfg.rfTrees; t++) {
+    const idx = bootstrapIndices(trainX.length, rnd);
+    trees.push(buildRFTree(trainX, trainY, idx, 0, cfg, rnd));
+    if ((t + 1) % 20 === 0 || t === cfg.rfTrees - 1) {
+      console.log(`RF tree ${t + 1}/${cfg.rfTrees}`);
+    }
+  }
+
+  return { trees };
+}
+
+function predictRF(model, X) {
+  return X.map((row) => {
+    let sum = 0;
+    for (const tree of model.trees) sum += predictRFTree(tree, row);
+    return sum / (model.trees.length || 1);
+  });
+}
+
+function evaluateRF(trainX, trainY, validX, validY, cfg, thresholdObjective) {
+  const model = trainRandomForest(trainX, trainY, cfg);
+  const trainScores = predictRF(model, trainX);
+  const validScores = predictRF(model, validX);
+
+  const bestTrain = bestThreshold(trainScores, trainY, thresholdObjective);
+  const trainMetrics = confusionFromScores(trainScores, trainY, bestTrain.threshold);
+  const validMetrics = confusionFromScores(validScores, validY, bestTrain.threshold);
+
+  return {
+    model,
+    threshold: bestTrain.threshold,
+    trainMetrics,
+    validMetrics,
+    validScores
+  };
+}
+
 function subsetMatrix(X, indices) {
   return X.map((row) => indices.map((idx) => row[idx]));
 }
@@ -702,6 +873,14 @@ async function main() {
     cfg.seed,
     cfg.thresholdObjective
   );
+  const rfEval = evaluateRF(
+    trainSel,
+    trainY,
+    validSel,
+    validY,
+    cfg,
+    cfg.thresholdObjective
+  );
 
   const ablation = ablationByFeature(trainX, trainY, validX, validY, selectedFeatures, featureToIndex, cfg);
 
@@ -737,6 +916,14 @@ async function main() {
     cfg.seed + 17,
     cfg.thresholdObjective
   );
+  const rfPrunedEval = evaluateRF(
+    finalTrain,
+    trainY,
+    finalValid,
+    validY,
+    cfg,
+    cfg.thresholdObjective
+  );
 
   const candidates = [
     {
@@ -754,6 +941,13 @@ async function main() {
       eval: nnEval
     },
     {
+      stage: 'prePrune',
+      modelType: 'randomForest',
+      features: selectedFeatures,
+      indices: selectedIndices,
+      eval: rfEval
+    },
+    {
       stage: 'postPrune',
       modelType: 'logistic',
       features: finalFeatures,
@@ -766,6 +960,13 @@ async function main() {
       features: finalFeatures,
       indices: finalIndices,
       eval: nnPrunedEval
+    },
+    {
+      stage: 'postPrune',
+      modelType: 'randomForest',
+      features: finalFeatures,
+      indices: finalIndices,
+      eval: rfPrunedEval
     }
   ];
 
@@ -804,6 +1005,10 @@ async function main() {
   if (bestModelType === 'logistic') {
     exportModel.W = selectedEval.model.w;
     exportModel.b = selectedEval.model.b;
+  } else if (bestModelType === 'randomForest') {
+    exportModel.trees = selectedEval.model.trees;
+    exportModel.rfTrees = selectedEval.model.trees.length;
+    exportModel.rfMaxDepth = cfg.rfMaxDepth;
   } else {
     exportModel.hiddenSize = selectedEval.model.hiddenSize;
     exportModel.W1 = selectedEval.model.W1;
@@ -829,6 +1034,11 @@ async function main() {
         threshold: nnEval.threshold,
         trainMetrics: nnEval.trainMetrics,
         validMetrics: nnEval.validMetrics
+      },
+      randomForest: {
+        threshold: rfEval.threshold,
+        trainMetrics: rfEval.trainMetrics,
+        validMetrics: rfEval.validMetrics
       }
     },
     postPrune: {
@@ -841,6 +1051,11 @@ async function main() {
         threshold: nnPrunedEval.threshold,
         trainMetrics: nnPrunedEval.trainMetrics,
         validMetrics: nnPrunedEval.validMetrics
+      },
+      randomForest: {
+        threshold: rfPrunedEval.threshold,
+        trainMetrics: rfPrunedEval.trainMetrics,
+        validMetrics: rfPrunedEval.validMetrics
       }
     },
     bestModelType,
@@ -874,6 +1089,14 @@ async function main() {
     (nnPrunedEval.validMetrics.accuracy * 100).toFixed(2) + '%',
     'BAcc:',
     (nnPrunedEval.validMetrics.balancedAccuracy * 100).toFixed(2) + '%'
+  );
+  console.log(
+    'Post-prune RF valid F1:',
+    rfPrunedEval.validMetrics.f1.toFixed(4),
+    'Acc:',
+    (rfPrunedEval.validMetrics.accuracy * 100).toFixed(2) + '%',
+    'BAcc:',
+    (rfPrunedEval.validMetrics.balancedAccuracy * 100).toFixed(2) + '%'
   );
   console.log('Saved model:', cfg.modelPath);
   console.log('Saved report:', cfg.reportPath);
