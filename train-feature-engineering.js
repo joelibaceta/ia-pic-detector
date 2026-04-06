@@ -123,6 +123,8 @@ function parseArgs() {
     rfMaxDepth: 8,
     rfMinSamplesSplit: 24,
     rfFeatureFraction: 0.35,
+    earlyStopPatience: 10,
+    includeImagesDir: 'images',
     modelPath: 'hybrid-model.feature-engineered.json',
     reportPath: 'feature-engineering-report.json'
   };
@@ -151,6 +153,8 @@ function parseArgs() {
     if (k === '--rfMaxDepth') cfg.rfMaxDepth = Number(v);
     if (k === '--rfMinSamplesSplit') cfg.rfMinSamplesSplit = Number(v);
     if (k === '--rfFeatureFraction') cfg.rfFeatureFraction = Number(v);
+    if (k === '--earlyStopPatience') cfg.earlyStopPatience = Number(v);
+    if (k === '--includeImagesDir') cfg.includeImagesDir = v;
     if (k === '--modelPath') cfg.modelPath = v;
     if (k === '--reportPath') cfg.reportPath = v;
   }
@@ -326,21 +330,22 @@ function featureMapFromImageData(imageData, pixelInputSize = 0, surfDescriptorSi
     wavelet_score: clamp01(waveletScore)
   };
 
+  let featureMap;
   if (surfDescriptorSize > 0) {
-    return {
+    featureMap = {
       ...baseMap,
       ...extractSurfFeatureMap(advancedFeatures?.surfLike, surfDescriptorSize)
     };
-  }
-
-  if (pixelInputSize > 0) {
-    return {
+  } else if (pixelInputSize > 0) {
+    featureMap = {
       ...baseMap,
       ...extractPixelFeatureMap(grayImage, pixelInputSize)
     };
+  } else {
+    featureMap = baseMap;
   }
 
-  return baseMap;
+  return { featureMap, rawRegional: regional };
 }
 
 async function buildDataset(files, label, maxSize, pixelInputSize = 0, surfDescriptorSize = 0) {
@@ -350,11 +355,12 @@ async function buildDataset(files, label, maxSize, pixelInputSize = 0, surfDescr
   for (const file of files) {
     try {
       const imageData = await imageToImageData(file, maxSize);
-      const fmap = featureMapFromImageData(imageData, pixelInputSize, surfDescriptorSize);
+      const { featureMap, rawRegional } = featureMapFromImageData(imageData, pixelInputSize, surfDescriptorSize);
       rows.push({
         file,
         y: label ? 1 : 0,
-        featureMap: fmap
+        featureMap,
+        rawRegional
       });
     } catch (error) {
       rows.push({ file, y: label ? 1 : 0, error: error.message });
@@ -415,11 +421,15 @@ function predictLogisticRow(row, w, b) {
   return sigmoid(z);
 }
 
-function trainLogistic(X, y, epochs, lr, l2 = 0.0005) {
+function trainLogistic(X, y, epochs, lr, l2 = 0.0005, validX = null, validY = null, patience = 10, minDelta = 1e-4) {
   const n = X.length;
   const p = X[0].length;
   const w = new Array(p).fill(0);
   let b = 0;
+  const evalEvery = 10;
+  let bestValLoss = Infinity;
+  let patienceCount = 0;
+  let bestW = null, bestB = 0, bestEpoch = 0;
 
   for (let epoch = 1; epoch <= epochs; epoch++) {
     const dw = new Array(p).fill(0);
@@ -446,11 +456,39 @@ function trainLogistic(X, y, epochs, lr, l2 = 0.0005) {
     }
     b -= scale * db;
 
-    if (epoch % 20 === 0 || epoch === 1 || epoch === epochs) {
-      console.log(`Logistic epoch ${epoch}/${epochs} - loss: ${(loss / n).toFixed(4)}`);
+    const trainLoss = loss / n;
+
+    if (validX && validY && epoch % evalEvery === 0) {
+      let vLoss = 0;
+      for (let i = 0; i < validX.length; i++) {
+        const pp = Math.min(Math.max(predictLogisticRow(validX[i], w, b), 1e-7), 1 - 1e-7);
+        vLoss += -(validY[i] * Math.log(pp) + (1 - validY[i]) * Math.log(1 - pp));
+      }
+      vLoss /= validX.length;
+
+      if (epoch % 20 === 0 || epoch === epochs) {
+        console.log(`Logistic epoch ${epoch}/${epochs} - train: ${trainLoss.toFixed(4)} | val: ${vLoss.toFixed(4)}`);
+      }
+
+      if (vLoss < bestValLoss - minDelta) {
+        bestValLoss = vLoss;
+        patienceCount = 0;
+        bestW = w.slice();
+        bestB = b;
+        bestEpoch = epoch;
+      } else {
+        patienceCount++;
+        if (patienceCount >= patience) {
+          console.log(`Logistic early stop @ epoch ${epoch} (best val: ${bestValLoss.toFixed(4)} @ epoch ${bestEpoch})`);
+          break;
+        }
+      }
+    } else if (!validX && (epoch % 20 === 0 || epoch === 1 || epoch === epochs)) {
+      console.log(`Logistic epoch ${epoch}/${epochs} - loss: ${trainLoss.toFixed(4)}`);
     }
   }
 
+  if (bestW) return { w: bestW, b: bestB };
   return { w, b };
 }
 
@@ -490,8 +528,21 @@ function forwardNN(model, x) {
   return { z1, a1, p };
 }
 
-function trainNN(model, X, y, epochs, lr) {
+function trainNN(model, X, y, epochs, lr, validX = null, validY = null, patience = 10, minDelta = 1e-4) {
   const n = X.length;
+  const evalEvery = 10;
+  let bestValLoss = Infinity;
+  let patienceCount = 0;
+  let bestWeights = null, bestEpoch = 0;
+
+  function snapshotWeights(m) {
+    return {
+      W1: m.W1.map(r => r.slice()),
+      b1: m.b1.slice(),
+      W2: m.W2.slice(),
+      b2: m.b2
+    };
+  }
 
   for (let epoch = 1; epoch <= epochs; epoch++) {
     const dW1 = Array.from({ length: model.hiddenSize }, () => new Array(model.inputSize).fill(0));
@@ -527,9 +578,43 @@ function trainNN(model, X, y, epochs, lr) {
       for (let j = 0; j < model.inputSize; j++) model.W1[h][j] -= scale * dW1[h][j];
     }
 
-    if (epoch % 20 === 0 || epoch === 1 || epoch === epochs) {
-      console.log(`NN epoch ${epoch}/${epochs} - loss: ${(loss / n).toFixed(4)}`);
+    const trainLoss = loss / n;
+
+    if (validX && validY && epoch % evalEvery === 0) {
+      let vLoss = 0;
+      for (let i = 0; i < validX.length; i++) {
+        const pp = Math.min(Math.max(forwardNN(model, validX[i]).p, 1e-7), 1 - 1e-7);
+        vLoss += -(validY[i] * Math.log(pp) + (1 - validY[i]) * Math.log(1 - pp));
+      }
+      vLoss /= validX.length;
+
+      if (epoch % 20 === 0 || epoch === epochs) {
+        console.log(`NN epoch ${epoch}/${epochs} - train: ${trainLoss.toFixed(4)} | val: ${vLoss.toFixed(4)}`);
+      }
+
+      if (vLoss < bestValLoss - minDelta) {
+        bestValLoss = vLoss;
+        patienceCount = 0;
+        bestWeights = snapshotWeights(model);
+        bestEpoch = epoch;
+      } else {
+        patienceCount++;
+        if (patienceCount >= patience) {
+          console.log(`NN early stop @ epoch ${epoch} (best val: ${bestValLoss.toFixed(4)} @ epoch ${bestEpoch})`);
+          break;
+        }
+      }
+    } else if (!validX && (epoch % 20 === 0 || epoch === 1 || epoch === epochs)) {
+      console.log(`NN epoch ${epoch}/${epochs} - loss: ${trainLoss.toFixed(4)}`);
     }
+  }
+
+  // Restore best weights
+  if (bestWeights) {
+    model.W1 = bestWeights.W1;
+    model.b1 = bestWeights.b1;
+    model.W2 = bestWeights.W2;
+    model.b2 = bestWeights.b2;
   }
 
   return model;
@@ -646,8 +731,8 @@ function pointBiserialImportance(X, y, featureKeys) {
   return rows;
 }
 
-function evaluateLogistic(trainX, trainY, validX, validY, epochs, lr, thresholdObjective) {
-  const model = trainLogistic(trainX, trainY, epochs, lr);
+function evaluateLogistic(trainX, trainY, validX, validY, epochs, lr, thresholdObjective, earlyStopPatience = 10) {
+  const model = trainLogistic(trainX, trainY, epochs, lr, 0.0005, validX, validY, earlyStopPatience);
   const trainScores = trainX.map((r) => predictLogisticRow(r, model.w, model.b));
   const validScores = validX.map((r) => predictLogisticRow(r, model.w, model.b));
 
@@ -664,9 +749,9 @@ function evaluateLogistic(trainX, trainY, validX, validY, epochs, lr, thresholdO
   };
 }
 
-function evaluateNN(trainX, trainY, validX, validY, hiddenSize, epochs, lr, seed, thresholdObjective) {
+function evaluateNN(trainX, trainY, validX, validY, hiddenSize, epochs, lr, seed, thresholdObjective, earlyStopPatience = 10) {
   const model = initNN(trainX[0].length, hiddenSize, seed + 101);
-  trainNN(model, trainX, trainY, epochs, lr);
+  trainNN(model, trainX, trainY, epochs, lr, validX, validY, earlyStopPatience);
 
   const trainScores = trainX.map((r) => forwardNN(model, r).p);
   const validScores = validX.map((r) => forwardNN(model, r).p);
@@ -785,15 +870,68 @@ function predictRFTree(tree, row) {
   return node.prob;
 }
 
-function trainRandomForest(trainX, trainY, cfg) {
+function trainRandomForest(trainX, trainY, cfg, validX = null, validY = null) {
   const rnd = mulberry32(cfg.seed + 909);
   const trees = [];
+  const n = trainX.length;
+  const evalEvery = 20;
+  const oobPatience = 3;
+
+  // OOB tracking: per sample, accumulate prediction sum + count
+  const oobPreds = Array.from({ length: n }, () => ({ sum: 0, count: 0 }));
+  let bestOobAcc = 0;
+  let oobPatienceCount = 0;
 
   for (let t = 0; t < cfg.rfTrees; t++) {
     const idx = bootstrapIndices(trainX.length, rnd);
-    trees.push(buildRFTree(trainX, trainY, idx, 0, cfg, rnd));
-    if ((t + 1) % 20 === 0 || t === cfg.rfTrees - 1) {
-      console.log(`RF tree ${t + 1}/${cfg.rfTrees}`);
+    const inBag = new Set(idx);
+
+    const tree = buildRFTree(trainX, trainY, idx, 0, cfg, rnd);
+    trees.push(tree);
+
+    // Update OOB predictions for out-of-bag samples
+    for (let i = 0; i < n; i++) {
+      if (!inBag.has(i)) {
+        oobPreds[i].sum += predictRFTree(tree, trainX[i]);
+        oobPreds[i].count += 1;
+      }
+    }
+
+    if ((t + 1) % evalEvery === 0 || t === cfg.rfTrees - 1) {
+      let oobCorrect = 0, oobTotal = 0;
+      for (let i = 0; i < n; i++) {
+        if (oobPreds[i].count > 0) {
+          const pred = oobPreds[i].sum / oobPreds[i].count > 0.5 ? 1 : 0;
+          if (pred === trainY[i]) oobCorrect++;
+          oobTotal++;
+        }
+      }
+      const oobAcc = oobTotal ? oobCorrect / oobTotal : 0;
+
+      let logMsg = `RF tree ${t + 1}/${cfg.rfTrees} - OOB acc: ${(oobAcc * 100).toFixed(1)}%`;
+
+      if (validX && validY) {
+        const valScores = predictRF({ trees }, validX);
+        const valCm = confusionFromScores(valScores, validY, 0.5);
+        logMsg += ` | val acc: ${(valCm.accuracy * 100).toFixed(1)}% | val balAcc: ${(valCm.balancedAccuracy * 100).toFixed(1)}%`;
+      }
+      console.log(logMsg);
+
+      // Early stop based on OOB (only after first batch)
+      if (t >= evalEvery - 1) {
+        if (oobAcc > bestOobAcc + 0.001) {
+          bestOobAcc = oobAcc;
+          oobPatienceCount = 0;
+        } else {
+          oobPatienceCount++;
+          if (oobPatienceCount >= oobPatience) {
+            console.log(`RF early stop at tree ${t + 1} (best OOB: ${(bestOobAcc * 100).toFixed(1)}%)`);
+            break;
+          }
+        }
+      } else {
+        bestOobAcc = Math.max(bestOobAcc, oobAcc);
+      }
     }
   }
 
@@ -809,7 +947,7 @@ function predictRF(model, X) {
 }
 
 function evaluateRF(trainX, trainY, validX, validY, cfg, thresholdObjective) {
-  const model = trainRandomForest(trainX, trainY, cfg);
+  const model = trainRandomForest(trainX, trainY, cfg, validX, validY);
   const trainScores = predictRF(model, trainX);
   const validScores = predictRF(model, validX);
 
@@ -886,6 +1024,74 @@ function metricFromValid(validMetrics, objective) {
   return Number.isFinite(validMetrics?.balancedAccuracy) ? validMetrics.balancedAccuracy : 0;
 }
 
+function calibrateEvidenceThresholds(rows) {
+  // Features and their anomaly direction: LOW value = AI indicator unless noted
+  const features = [
+    { key: 'labDistance',            direction: 'low'    },
+    { key: 'sharpnessRatio',         direction: 'low'    },
+    { key: 'contourGradient',        direction: 'low'    },
+    { key: 'skinLbpDiff',            direction: 'lowAbs' },
+    { key: 'noiseConsistency',       direction: 'high'   },
+    { key: 'jpegBlockInconsistency', direction: 'low'    },
+    { key: 'fftProfileDiff',         direction: 'low'    },
+    { key: 'localContrastRatio',     direction: 'low'    }
+  ];
+
+  function pct(arr, p) {
+    if (!arr.length) return null;
+    const s = arr.slice().sort((a, b) => a - b);
+    const idx = Math.max(0, Math.min(s.length - 1, Math.floor((p / 100) * (s.length - 1))));
+    return s[idx];
+  }
+
+  const realVals = {}, fakeVals = {};
+  for (const { key } of features) { realVals[key] = []; fakeVals[key] = []; }
+
+  for (const row of rows) {
+    if (!row.rawRegional) continue;
+    const target = row.y === 0 ? realVals : fakeVals;
+    for (const { key } of features) {
+      const v = row.rawRegional[key];
+      if (Number.isFinite(v)) target[key].push(v);
+    }
+  }
+
+  const thresholds = {};
+  for (const { key, direction } of features) {
+    const r = realVals[key], f = fakeVals[key];
+    const realStats = {
+      n: r.length,
+      p5:  pct(r, 5),  p25: pct(r, 25), p50: pct(r, 50),
+      p75: pct(r, 75), p95: pct(r, 95)
+    };
+    const fakeStats = {
+      n: f.length,
+      p5:  pct(f, 5),  p25: pct(f, 25), p50: pct(f, 50),
+      p75: pct(f, 75), p95: pct(f, 95)
+    };
+
+    let threshold = null;
+    if (direction === 'low' && r.length > 0 && f.length > 0) {
+      // AI has lower values: threshold = midpoint between real p25 and fake p75
+      const mid = (realStats.p25 + fakeStats.p75) / 2;
+      threshold = Number.isFinite(mid) ? mid : realStats.p25;
+    } else if (direction === 'high' && r.length > 0 && f.length > 0) {
+      // AI has higher values: threshold = midpoint between real p75 and fake p25
+      const mid = (realStats.p75 + fakeStats.p25) / 2;
+      threshold = Number.isFinite(mid) ? mid : realStats.p75;
+    } else if (direction === 'lowAbs') {
+      // Low absolute value is anomalous
+      const rAbs = r.map(Math.abs), fAbs = f.map(Math.abs);
+      const mid = (pct(rAbs, 25) + pct(fAbs, 75)) / 2;
+      threshold = Number.isFinite(mid) ? mid : pct(rAbs, 25);
+    }
+
+    thresholds[key] = { direction, threshold, realStats, fakeStats };
+  }
+
+  return thresholds;
+}
+
 async function main() {
   const cfg = parseArgs();
   const base = process.cwd();
@@ -918,6 +1124,27 @@ async function main() {
     ...(await buildDataset(validFake, true, cfg.maxSize, cfg.pixelInputSize, cfg.surfDescriptorSize))
   ];
 
+  // Load user images from images/ folder for calibration
+  let userRows = [];
+  const imagesDir = path.join(base, cfg.includeImagesDir);
+  if (fs.existsSync(imagesDir)) {
+    const imgFiles = listImageFiles(imagesDir);
+    const labeled = imgFiles.map((f) => {
+      const name = path.basename(f).toLowerCase();
+      const isFake = /^(ia|fake|ai|gen|synthetic)/.test(name);
+      const isReal = /^(real|photo|human|orig|natural)/.test(name);
+      return isFake ? { file: f, label: true } : isReal ? { file: f, label: false } : null;
+    }).filter(Boolean);
+
+    for (const { file, label } of labeled) {
+      const rows = await buildDataset([file], label, cfg.maxSize, cfg.pixelInputSize, cfg.surfDescriptorSize);
+      userRows = userRows.concat(rows);
+    }
+    if (userRows.length > 0) {
+      console.log(`User images loaded: ${userRows.length} (${labeled.filter(l=>l.label).length} fake, ${labeled.filter(l=>!l.label).length} real) from ${cfg.includeImagesDir}/`);
+    }
+  }
+
   const trainY = trainRows.map((r) => r.y);
   const validY = validRows.map((r) => r.y);
 
@@ -940,32 +1167,16 @@ async function main() {
   console.log('Top selected features:', selectedFeatures.slice(0, 10));
 
   const logisticEval = evaluateLogistic(
-    trainSel,
-    trainY,
-    validSel,
-    validY,
-    cfg.logisticEpochs,
-    cfg.logisticLR,
-    cfg.thresholdObjective
+    trainSel, trainY, validSel, validY,
+    cfg.logisticEpochs, cfg.logisticLR, cfg.thresholdObjective, cfg.earlyStopPatience
   );
   const nnEval = evaluateNN(
-    trainSel,
-    trainY,
-    validSel,
-    validY,
-    cfg.nnHidden,
-    cfg.nnEpochs,
-    cfg.nnLR,
-    cfg.seed,
-    cfg.thresholdObjective
+    trainSel, trainY, validSel, validY,
+    cfg.nnHidden, cfg.nnEpochs, cfg.nnLR, cfg.seed, cfg.thresholdObjective, cfg.earlyStopPatience
   );
   const rfEval = evaluateRF(
-    trainSel,
-    trainY,
-    validSel,
-    validY,
-    cfg,
-    cfg.thresholdObjective
+    trainSel, trainY, validSel, validY,
+    cfg, cfg.thresholdObjective
   );
 
   const ablation = ablationByFeature(trainX, trainY, validX, validY, selectedFeatures, featureToIndex, cfg);
@@ -982,25 +1193,13 @@ async function main() {
   const finalValid = subsetMatrix(validX, finalIndices);
 
   const logisticPrunedEval = evaluateLogistic(
-    finalTrain,
-    trainY,
-    finalValid,
-    validY,
-    cfg.logisticEpochs,
-    cfg.logisticLR,
-    cfg.thresholdObjective
+    finalTrain, trainY, finalValid, validY,
+    cfg.logisticEpochs, cfg.logisticLR, cfg.thresholdObjective, cfg.earlyStopPatience
   );
 
   const nnPrunedEval = evaluateNN(
-    finalTrain,
-    trainY,
-    finalValid,
-    validY,
-    cfg.nnHidden,
-    cfg.nnEpochs,
-    cfg.nnLR,
-    cfg.seed + 17,
-    cfg.thresholdObjective
+    finalTrain, trainY, finalValid, validY,
+    cfg.nnHidden, cfg.nnEpochs, cfg.nnLR, cfg.seed + 17, cfg.thresholdObjective, cfg.earlyStopPatience
   );
   const rfPrunedEval = evaluateRF(
     finalTrain,
@@ -1099,6 +1298,12 @@ async function main() {
   };
   
   exportModel.ensembleModels = ensembleModels;
+
+  // Calibrate evidence thresholds from training data + user images
+  const calibrationRows = [...trainRows, ...userRows];
+  const evidenceThresholds = calibrateEvidenceThresholds(calibrationRows);
+  exportModel.evidenceThresholds = evidenceThresholds;
+  console.log(`Evidence thresholds calibrated from ${calibrationRows.filter(r=>r.rawRegional).length} samples (${userRows.length} user images)`);
 
   if (bestModelType === 'logistic') {
     exportModel.W = selectedEval.model.w;

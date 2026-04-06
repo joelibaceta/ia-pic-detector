@@ -309,63 +309,77 @@ function renderEvidence(result) {
             return Math.min(1, Math.max(0, v / scale));
         };
 
+        // Calibrated thresholds from model (if available), otherwise use hardcoded fallbacks
+        const calibThresh = (typeof HybridModel !== 'undefined' && HybridModel._model?.evidenceThresholds) || {};
+        const getThreshold = (key, fallback) => {
+            const ct = calibThresh[key];
+            return (ct && Number.isFinite(ct.threshold)) ? ct.threshold : fallback;
+        };
+        const getDirection = (key) => calibThresh[key]?.direction || null;
+
         if (Number.isFinite(regional.labDistance)) {
+            const thresh = getThreshold('labDistance', 15);
             regionalSignals.push({
                 key: 'labDistance',
                 label: 'Color Distance (Lab)',
-                measure: 'Diferencia de color entre sujeto y fondo. IA suele tener menor variación.',
+                measure: `Diferencia de color sujeto/fondo. IA suele tener menor variación (umbral: ${thresh.toFixed(1)}).`,
                 value: normalizeRegional(regional.labDistance, 50),
-                anomalous: regional.labDistance < 15  // BAJO = IA (colores similares)
+                anomalous: regional.labDistance < thresh
             });
         }
 
         if (Number.isFinite(regional.sharpnessRatio)) {
+            const thresh = getThreshold('sharpnessRatio', 1.0);
             regionalSignals.push({
                 key: 'sharpnessRatio',
                 label: 'Sharpness Ratio',
-                measure: 'Ratio de nitidez sujeto/fondo. IA tiende a sobresuavizar.',
+                measure: `Ratio de nitidez sujeto/fondo. IA tiende a sobresuavizar (umbral: ${thresh.toFixed(2)}).`,
                 value: normalizeRegional(regional.sharpnessRatio, 3),
-                anomalous: regional.sharpnessRatio < 1.0  // BAJO = IA (sobresuavizado)
+                anomalous: regional.sharpnessRatio < thresh
             });
         }
 
         if (Number.isFinite(regional.contourGradient)) {
+            const thresh = getThreshold('contourGradient', 40);
             regionalSignals.push({
                 key: 'contourGradient',
                 label: 'Contour Gradient',
-                measure: 'Gradiente en bordes. IA muestra patrones más regulares.',
+                measure: `Gradiente en bordes. IA muestra patrones más regulares (umbral: ${thresh.toFixed(1)}).`,
                 value: normalizeRegional(regional.contourGradient, 120),
-                anomalous: regional.contourGradient < 40  // BAJO = IA (bordes regulares)
+                anomalous: regional.contourGradient < thresh
             });
         }
 
         if (Number.isFinite(regional.skinLbpDiff)) {
+            const thresh = getThreshold('skinLbpDiff', 0.5);
             regionalSignals.push({
                 key: 'skinLbpDiff',
                 label: 'Skin LBP Diff',
-                measure: 'Diferencia de textura local entre piel (sujeto) y fondo.',
+                measure: `Diferencia de textura local piel/fondo (umbral abs: ${thresh.toFixed(2)}).`,
                 value: normalizeRegional(regional.skinLbpDiff + 3, 6),
-                anomalous: Math.abs(regional.skinLbpDiff) < 0.5  // BAJO= IA (textura similar)
+                anomalous: Math.abs(regional.skinLbpDiff) < thresh
             });
         }
 
         if (Number.isFinite(regional.noiseConsistency)) {
+            const thresh = getThreshold('noiseConsistency', 0.85);
             regionalSignals.push({
                 key: 'noiseConsistency',
                 label: 'Noise Consistency',
-                measure: 'Consistencia de ruido entre regiones. IA muestra ruido uniforme.',
+                measure: `Consistencia de ruido entre regiones. IA muestra ruido uniforme (umbral: ${thresh.toFixed(2)}).`,
                 value: normalizeRegional(regional.noiseConsistency, 1),
-                anomalous: regional.noiseConsistency > 0.85  // ALTO = IA (ruido demasiado consistente)
+                anomalous: regional.noiseConsistency > thresh
             });
         }
 
         if (Number.isFinite(regional.jpegBlockInconsistency)) {
+            const thresh = getThreshold('jpegBlockInconsistency', 0.5);
             regionalSignals.push({
                 key: 'jpegInconsistency',
                 label: 'JPEG Block Inconsistency',
-                measure: 'Inconsistencia en bloques JPEG. Detecta generación sintética.',
+                measure: `Inconsistencia en bloques JPEG. Detecta generación sintética (umbral: ${thresh.toFixed(2)}).`,
                 value: normalizeRegional(regional.jpegBlockInconsistency, 3),
-                anomalous: regional.jpegBlockInconsistency < 0.5  // BAJO/cero = imagen sin compresión JPEG típica = IA
+                anomalous: regional.jpegBlockInconsistency < thresh
             });
         }
     }
